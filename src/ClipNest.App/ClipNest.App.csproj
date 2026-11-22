@@ -1,0 +1,77 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ClipNest.Core\ClipNest.Core.csproj" />
+    <ProjectReference Include="..\ClipNest.Data\ClipNest.Data.csproj" />
+    <ProjectReference Include="..\ClipNest.Imaging\ClipNest.Imaging.csproj" />
+    <ProjectReference Include="..\ClipNest.Ai\ClipNest.Ai.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ClipNest.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.23" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.23" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.23" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+    <PackageReference Include="Serilog" Version="4.4.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.0" />
+  </ItemGroup>
+
+  <!-- 界面字体随程序分发，避免依赖用户机器上是否安装了同一款字体。 -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+    <AvaloniaResource Include="Assets\app.ico" />
+    <AvaloniaResource Include="Assets\app-icon.png" />
+    <!-- OFL 要求分发时附带许可证正文。 -->
+    <None Update="Assets\Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- 开源许可证与第三方组件声明随发行包一起分发。 -->
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Link="LICENSE" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- 窗口通过 DI 构造，没有无参构造函数；运行时 XAML 加载器不会实例化它们。 -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    DirectML 包会把调试版 DLL 与 12MB 符号文件一并复制到输出目录，发布时不需要。
+    DirectML.dll 本身必须保留，因为 onnxruntime.dll 直接依赖它。
+  -->
+  <Target Name="TrimDirectMlSymbols" AfterTargets="Build;Publish">
+    <Delete Files="$(OutDir)DirectML.Debug.dll;$(OutDir)DirectML.Debug.pdb;$(OutDir)DirectML.pdb;$(PublishDir)DirectML.Debug.dll;$(PublishDir)DirectML.Debug.pdb;$(PublishDir)DirectML.pdb" />
+  </Target>
+
+  <!--
+    发布包不附带调试器、转储工具、符号文件与链接库，普通运行不需要这些文件。
+    删除后不再生成 .NET 崩溃转储，托管堆栈也不带行号。
+  -->
+  <Target Name="TrimPublishDebugAssets" AfterTargets="Publish">
+    <ItemGroup>
+      <PublishDebugAsset Include="$(PublishDir)mscordaccore*.dll" />
+      <PublishDebugAsset Include="$(PublishDir)mscordbi.dll" />
+      <PublishDebugAsset Include="$(PublishDir)Microsoft.DiaSymReader.Native.amd64.dll" />
+      <PublishDebugAsset Include="$(PublishDir)createdump.exe" />
+      <PublishDebugAsset Include="$(PublishDir)**\*.pdb" />
+      <PublishDebugAsset Include="$(PublishDir)onnxruntime.lib" />
+    </ItemGroup>
+    <Delete Files="@(PublishDebugAsset)" />
+  </Target>
+
+</Project>

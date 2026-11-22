@@ -1,0 +1,107 @@
+using Microsoft.ML.OnnxRuntime;
+
+namespace ClipNest.Ai.Acceleration;
+
+/// <summary>推理实际落在哪种设备上。</summary>
+public enum AcceleratorKind
+{
+    Cpu,
+    DirectMl
+}
+
+/// <summary>
+/// 会话创建的唯一入口。默认尝试 DirectML，即 Windows 上的 DX12 GPU 路径，失败则退回 CPU。
+/// </summary>
+/// <remarks>
+/// CUDA 只覆盖 NVIDIA，ROCm 与 MIGraphX 的 ONNX Runtime 只有 Linux 构建，OpenVINO 只覆盖 Intel。
+/// Windows 上覆盖 AMD、NVIDIA 与 Intel 核显的通用路径只有 DirectML，因此默认尝试它。
+/// </remarks>
+public static class OrtAccelerator
+{
+    private const string SettingVariable = "CLIPNEST_ACCEL";
+
+    private static readonly Lazy<bool> DirectMlCompiled = new(() =>
+    {
+        try
+        {
+            return OrtEnv.Instance().GetAvailableProviders()
+                .Any(name => name.Contains("Dml", StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return false;
+        }
+    });
+
+    /// <summary>上一次成功创建的会话用了什么设备。</summary>
+    public static AcceleratorKind Active { get; private set; } = AcceleratorKind.Cpu;
+
+    /// <summary>是否已经真正创建过会话。没有会话时不能把「尚未推理」报告为「在用 CPU」。</summary>
+    public static bool HasSession { get; private set; }
+
+    /// <summary>用户是否显式要求关闭加速（CLIPNEST_ACCEL=cpu）。</summary>
+    public static bool DisabledBySettings =>
+        string.Equals(
+            Environment.GetEnvironmentVariable(SettingVariable),
+            "cpu",
+            StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsGpuAvailable => DirectMlCompiled.Value && !DisabledBySettings;
+
+    /// <summary>
+    /// 创建会话。<paramref name="allowGpu"/> 为假时固定走 CPU；
+    /// CLIP 的输入是动态形状，文本长度随查询变化，放 GPU 上会反复重编译计算图，反而更慢。
+    /// </summary>
+    public static InferenceSession CreateSession(string modelPath, bool allowGpu)
+    {
+        if (allowGpu && IsGpuAvailable)
+        {
+            try
+            {
+                var gpu = new InferenceSession(modelPath, BuildOptions(useGpu: true));
+                Active = AcceleratorKind.DirectMl;
+                HasSession = true;
+                return gpu;
+            }
+            catch (Exception)
+            {
+                // 显卡可用但拿不到 D3D12 设备（远程桌面、驱动异常、虚拟机）时进入此分支。
+                // 失败后必须新建 SessionOptions；追加过 provider 的实例不能复用。
+            }
+        }
+
+        var cpu = new InferenceSession(modelPath, BuildOptions(useGpu: false));
+        Active = AcceleratorKind.Cpu;
+        HasSession = true;
+        return cpu;
+    }
+
+    private static SessionOptions BuildOptions(bool useGpu)
+    {
+        var options = new SessionOptions
+        {
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+            InterOpNumThreads = 1,
+            IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 2),
+            ExecutionMode = ExecutionMode.ORT_SEQUENTIAL
+        };
+
+        if (useGpu)
+        {
+            // deviceId 0 表示系统默认适配器。显存里放的是模型权重，不占用进程内存。
+            options.AppendExecutionProvider_DML(0);
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// 供状态栏显示的一行文字。会话尚未创建时报告当前能力，而不是上一次使用的设备；
+    /// 否则刚启动、还没有待标注任务时会显示 CPU，看起来像加速未生效。
+    /// </summary>
+    public static string Describe()
+    {
+        if (HasSession) return Active == AcceleratorKind.DirectMl ? "GPU" : "CPU";
+        return IsGpuAvailable ? "GPU 就绪" : "CPU";
+    }
+}

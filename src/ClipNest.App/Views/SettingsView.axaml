@@ -1,0 +1,454 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ClipNest.App.ViewModels"
+             xmlns:controls="using:ClipNest.App.Controls"
+             x:Class="ClipNest.App.Views.SettingsView"
+             x:DataType="vm:MainWindowViewModel"
+             FontFamily="{StaticResource Font.UI}"
+             KeyboardNavigation.TabNavigation="Cycle">
+
+  <UserControl.Styles>
+    <!-- 设置页左侧导航与主界面侧栏同宽，保持窗口的栏位节奏。 -->
+    <Style Selector="Button.settingsNav">
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.settingsNav:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="Button.settingsNav.active">
+      <Setter Property="Background" Value="{DynamicResource Brush.Accent.Subtle}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="Button.settingsNav.active controls|StrokeIcon">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Bright}" />
+    </Style>
+
+    <!-- 模板的悬停底色画在内层，覆盖层会盖掉选中行的强调色，这里同步一份。 -->
+    <Style Selector="Button.settingsNav /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.settingsNav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+    </Style>
+    <Style Selector="Button.settingsNav.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.Accent.Subtle}" />
+    </Style>
+
+    <!-- 右侧内容卡片使用玻璃底，与窗口底色拉开一层。 -->
+    <Style Selector="Border.settingCard">
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Glass}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="20" />
+    </Style>
+    <Style Selector="TextBlock.pageTitle">
+      <Setter Property="FontFamily" Value="{StaticResource Font.Display}" />
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="TextBlock.rowTitle">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="TextBlock.rowNote">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Tertiary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="LineHeight" Value="17" />
+    </Style>
+    <Style Selector="Border.segmentWell">
+      <Setter Property="Background" Value="{DynamicResource Brush.Control.Well}" />
+      <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="Padding" Value="3" />
+    </Style>
+
+    <!-- 设置页里的选中段使用强调色，避免浅色主题下白底白字读不出来。 -->
+    <Style Selector="Button.segment.active">
+      <Setter Property="Background" Value="{DynamicResource Brush.Accent.Subtle}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Bright}" />
+    </Style>
+
+    <Style Selector="ToggleSwitch">
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="OnContent" Value="" />
+      <Setter Property="OffContent" Value="" />
+      <Setter Property="IsThreeState" Value="False" />
+    </Style>
+    <Style Selector="Slider">
+      <Setter Property="MinWidth" Value="180" />
+      <Setter Property="MaxWidth" Value="240" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid Background="{DynamicResource Brush.Surface.Window}" ColumnDefinitions="236,*">
+
+    <!-- 左导航。包含返回、标题与分区入口。 -->
+    <Border Grid.Column="0" Background="{DynamicResource Brush.Surface.Navigation}"
+            BorderBrush="{DynamicResource Brush.Panel.Separator}" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,Auto,*">
+
+        <StackPanel Grid.Row="0" Margin="14,20,14,0" PointerPressed="Header_PointerPressed">
+          <Button x:Name="BackButton" Classes="settingsNav" Command="{Binding CloseSettingsCommand}"
+                  ToolTip.Tip="返回图库 (Esc)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <controls:StrokeIcon Data="{StaticResource Icon.ChevronLeft}" Width="14" Height="14"
+                                   Thickness="1.7" VerticalAlignment="Center" />
+              <TextBlock Text="返回图库" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="20,18,20,14" Spacing="2" PointerPressed="Header_PointerPressed">
+          <TextBlock Text="设置" Classes="display" />
+          <TextBlock Text="外观、浏览与 AI 处理" Classes="caption" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Margin="10,4,10,16" Spacing="2">
+          <Button Classes="settingsNav" Classes.active="{Binding IsAppearanceSection}"
+                  Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Appearance">
+            <Grid ColumnDefinitions="Auto,*">
+              <controls:StrokeIcon Data="{StaticResource Icon.Sun}" Width="16" Height="16"
+                                   Thickness="1.6" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="外观" Margin="10,0,0,0" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+          <Button Classes="settingsNav" Classes.active="{Binding IsBrowsingSection}"
+                  Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Browsing">
+            <Grid ColumnDefinitions="Auto,*">
+              <controls:StrokeIcon Data="{StaticResource Icon.Grid}" Width="16" Height="16"
+                                   Thickness="1.6" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="浏览与搜索" Margin="10,0,0,0" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+          <Button Classes="settingsNav" Classes.active="{Binding IsAiSection}"
+                  Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Ai">
+            <Grid ColumnDefinitions="Auto,*">
+              <controls:StrokeIcon Data="{StaticResource Icon.Sparkle}" Width="16" Height="16"
+                                   Thickness="1.6" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="AI 管理" Margin="10,0,0,0" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+          <Button Classes="settingsNav" Classes.active="{Binding IsDataSection}"
+                  Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Data">
+            <Grid ColumnDefinitions="Auto,*">
+              <controls:StrokeIcon Data="{StaticResource Icon.Folder}" Width="16" Height="16"
+                                   Thickness="1.6" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="数据" Margin="10,0,0,0" VerticalAlignment="Center" />
+            </Grid>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- 右内容。顶部留出窗口控制条的拖动带，下方按分区切换。 -->
+    <Grid Grid.Column="1" RowDefinitions="Auto,*">
+      <Border Grid.Row="0" Height="40" Background="Transparent"
+              PointerPressed="Header_PointerPressed" />
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Width="640" Margin="24,4,24,48" Spacing="20" HorizontalAlignment="Center">
+
+          <!-- 外观 -->
+          <StackPanel IsVisible="{Binding IsAppearanceSection}" Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="外观" Classes="pageTitle" />
+              <TextBlock Text="选择 ClipNest 的配色；跟随系统时会随 Windows 深浅色自动切换。"
+                         Classes="caption" TextWrapping="Wrap" />
+            </StackPanel>
+            <Border Classes="settingCard">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Text="主题" Classes="rowTitle" />
+                  <TextBlock Text="深色玻璃、浅色玻璃，或跟随 Windows" Classes="rowNote" />
+                </StackPanel>
+                <Border Grid.Column="1" Classes="segmentWell" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button Classes="segment" Classes.active="{Binding IsAppearanceDark}"
+                            Command="{Binding SelectAppearanceCommand}" CommandParameter="Dark"
+                            Content="深色" />
+                    <Button Classes="segment" Classes.active="{Binding IsAppearanceLight}"
+                            Command="{Binding SelectAppearanceCommand}" CommandParameter="Light"
+                            Content="浅色" />
+                    <Button Classes="segment" Classes.active="{Binding IsAppearanceSystem}"
+                            Command="{Binding SelectAppearanceCommand}" CommandParameter="System"
+                            Content="跟随系统" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </Border>
+          </StackPanel>
+
+          <!-- 浏览与搜索 -->
+          <StackPanel IsVisible="{Binding IsBrowsingSection}" Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="浏览与搜索" Classes="pageTitle" />
+              <TextBlock Text="默认的缩略图大小、排序方式与搜索行为。"
+                         Classes="caption" TextWrapping="Wrap" />
+            </StackPanel>
+            <Border Classes="settingCard">
+              <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,14">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="缩略图大小" Classes="rowTitle" />
+                    <TextBlock Text="{Binding ThumbnailSize, StringFormat='{}{0:0} px'}" Classes="rowNote" />
+                  </StackPanel>
+                  <Slider Grid.Column="1" Width="220" Minimum="132" Maximum="340"
+                          Value="{Binding ThumbnailSize, Mode=TwoWay}" VerticalAlignment="Center" />
+                </Grid>
+
+                <Border Height="1" Background="{DynamicResource Brush.Hairline}" />
+
+                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,4">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="默认排序" Classes="rowTitle" />
+                    <TextBlock Text="图库列表的排序方式" Classes="rowNote" />
+                  </StackPanel>
+                  <Border Grid.Column="1" Classes="segmentWell" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                      <Button Classes="segment" Classes.active="{Binding IsSortDefault}"
+                              Command="{Binding ApplySortModeCommand}" CommandParameter="default"
+                              Content="默认" />
+                      <Button Classes="segment" Classes.active="{Binding IsSortTaken}"
+                              Command="{Binding ApplySortModeCommand}" CommandParameter="taken"
+                              Content="拍摄时间" />
+                      <Button Classes="segment" Classes.active="{Binding IsSortName}"
+                              Command="{Binding ApplySortModeCommand}" CommandParameter="name"
+                              Content="文件名" />
+                      <Button Classes="segment" Classes.active="{Binding IsSortRating}"
+                              Command="{Binding ApplySortModeCommand}" CommandParameter="rating"
+                              Content="评分" />
+                    </StackPanel>
+                  </Border>
+                </Grid>
+
+                <Border Height="1" Background="{DynamicResource Brush.Hairline}" Margin="0,10,0,0" />
+
+                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,4">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="详情栏" Classes="rowTitle" />
+                    <TextBlock Text="打开图库时显示右侧详情面板" Classes="rowNote" />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsInspectorOpen, Mode=TwoWay}"
+                                VerticalAlignment="Center" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,2">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="语义搜索" Classes="rowTitle" />
+                    <TextBlock Text="默认按画面内容理解搜索词，而不只匹配文件名" Classes="rowNote" />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" IsChecked="{Binding SemanticEnabled, Mode=TwoWay}"
+                                VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <!-- AI 管理 -->
+          <StackPanel IsVisible="{Binding IsAiSection}" Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="AI 管理" Classes="pageTitle" />
+              <TextBlock Text="自动识别与语义索引在本地运行，关闭后不会领取新任务。"
+                         Classes="caption" TextWrapping="Wrap" />
+            </StackPanel>
+            <Border Classes="settingCard">
+              <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,12">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="自动识别新图片" Classes="rowTitle" />
+                    <TextBlock Text="关闭后不再领取新任务，正在处理的一张会完成" Classes="rowNote" />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoTaggingEnabled, Mode=TwoWay}"
+                                VerticalAlignment="Center" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="自动生成语义索引" Classes="rowTitle" />
+                    <TextBlock Text="关闭后不自动编码新图片，语义搜索只覆盖已有索引" Classes="rowNote" />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoIndexingEnabled, Mode=TwoWay}"
+                                VerticalAlignment="Center" />
+                </Grid>
+
+                <Border Height="1" Background="{DynamicResource Brush.Hairline}" Margin="0,2,0,0" />
+
+                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,6">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="重新识别标签" Classes="rowTitle" />
+                    <TextBlock Text="清除现有 AI 标签并按各文件夹的模型重新识别，角色与作品按模型结论重建"
+                               Classes="rowNote" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Classes="ghost" Content="重新识别"
+                          Click="ReidentifyTags_Click"
+                          IsEnabled="{Binding CanReidentifyTags}" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*" Margin="0,14,0,6">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="识别模型" Classes="rowTitle" />
+                    <TextBlock Text="{Binding TagModelStatus}" Classes="rowNote" TextWrapping="Wrap" />
+                    <TextBlock Text="CAMIE 识别角色、作品与特征；RAM++ 只识别通用物体与场景。"
+                               Classes="rowNote" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding TagModels}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TagModelOption">
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,2">
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding DisplayName}" Classes="rowTitle" />
+                            <Border IsVisible="{Binding IsDefault}" VerticalAlignment="Center"
+                                    Background="{DynamicResource Brush.State.SuccessSubtle}"
+                                    CornerRadius="999" Padding="6,1">
+                              <TextBlock Text="默认" FontSize="11"
+                                         Foreground="{DynamicResource Brush.State.Success}" />
+                            </Border>
+                          </StackPanel>
+                          <TextBlock Text="{Binding Status}" Classes="rowNote" />
+                          <ProgressBar Width="120" Height="4" Maximum="1"
+                                       HorizontalAlignment="Left"
+                                       Value="{Binding Progress}"
+                                       IsVisible="{Binding IsDownloading}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+                          <Button Classes="ghost" Content="下载"
+                                  Click="DownloadTagModel_Click" Tag="{Binding}"
+                                  IsVisible="{Binding !IsReady}"
+                                  IsEnabled="{Binding !IsDownloading}" />
+                          <Button Classes="ghost" Content="取消"
+                                  Click="CancelTagModel_Click" Tag="{Binding}"
+                                  IsVisible="{Binding IsDownloading}" />
+                          <Button Classes="ghost" Content="设为默认"
+                                  Click="SetDefaultTagModel_Click" Tag="{Binding}"
+                                  IsVisible="{Binding !IsDefault}" />
+                          <Button Classes="ghost" Content="卸载"
+                                  Click="UninstallTagModel_Click" Tag="{Binding}"
+                                  IsVisible="{Binding IsReady}" />
+                        </StackPanel>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="文件夹模型" Classes="rowTitle" Margin="0,14,0,0" />
+                <TextBlock Text="指定文件夹使用的识别模型；跟随默认会使用上面的默认模型。"
+                           Classes="rowNote" TextWrapping="Wrap" />
+
+                <ItemsControl ItemsSource="{Binding FolderTagModels}"
+                              IsVisible="{Binding HasFolderTagModels}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FolderTagModelOption">
+                      <Grid ColumnDefinitions="*,170" Margin="0,6,0,2">
+                        <StackPanel Spacing="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                          <TextBlock Text="{Binding Folder.Name}" Classes="rowTitle"
+                                     TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Folder.Path}" Classes="rowNote"
+                                     TextTrimming="CharacterEllipsis"
+                                     ToolTip.Tip="{Binding Folder.Path}" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding Choices}"
+                                  SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                  SelectionChanged="FolderModel_SelectionChanged"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                          <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TagModelOption">
+                              <TextBlock Text="{Binding DisplayName}" />
+                            </DataTemplate>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="还没有导入文件夹" Classes="rowNote"
+                           IsVisible="{Binding !HasFolderTagModels}" Margin="0,4,0,0" />
+
+                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,2">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="语义模型" Classes="rowTitle" />
+                    <TextBlock Text="{Binding SemanticStatus}" Classes="rowNote" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Border IsVisible="{Binding IsModelReady}" VerticalAlignment="Center"
+                            Background="{DynamicResource Brush.State.SuccessSubtle}" CornerRadius="999"
+                            Padding="10,4">
+                      <TextBlock Text="已就绪" FontSize="12"
+                                 Foreground="{DynamicResource Brush.State.Success}" />
+                    </Border>
+                    <ProgressBar Width="90" Height="4" Maximum="1"
+                                 Value="{Binding ModelDownloadProgress}"
+                                 IsVisible="{Binding IsModelDownloading}" />
+                    <Button Classes="ghost" Content="下载"
+                            Command="{Binding DownloadModelCommand}"
+                            IsVisible="{Binding !IsModelReady}"
+                            IsEnabled="{Binding !IsModelDownloading}" />
+                    <Button Classes="ghost" Content="取消"
+                            Click="CancelSemanticModel_Click"
+                            IsVisible="{Binding IsModelDownloading}" />
+                    <Button Classes="ghost" Content="卸载"
+                            Click="UninstallSemanticModel_Click"
+                            IsVisible="{Binding IsModelReady}" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <!-- 数据 -->
+          <StackPanel IsVisible="{Binding IsDataSection}" Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="数据" Classes="pageTitle" />
+              <TextBlock Text="数据库、缩略图缓存、模型与设置文件都保存在数据目录。"
+                         Classes="caption" TextWrapping="Wrap" />
+            </StackPanel>
+            <Border Classes="settingCard">
+              <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,14">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="数据目录" Classes="rowTitle" />
+                    <TextBlock Text="{Binding DataDirectory}" Classes="rowNote"
+                               ToolTip.Tip="{Binding DataDirectory}" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Classes="ghost" VerticalAlignment="Center"
+                          Content="打开目录" Click="OpenDataFolder_Click" />
+                </Grid>
+
+                <Border Height="1" Background="{DynamicResource Brush.Hairline}" />
+
+                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,2">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="版本" Classes="rowTitle" />
+                    <TextBlock Text="ClipNest 当前版本" Classes="rowNote" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="1" Text="{Binding AppVersion}" FontSize="13"
+                             Foreground="{DynamicResource Brush.Text.Secondary}"
+                             VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ClipNest.Core\ClipNest.Core.csproj" />
+    <ProjectReference Include="..\ClipNest.Data\ClipNest.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MetadataExtractor" Version="2.9.3" />
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+  </ItemGroup>
+
+  <!--
+    LibRaw 0.22.2（MSVC 2022，x64）以独立 DLL 动态加载，LGPL-2.1 / CDDL-1.0 双许可。
+    许可证正文随发行包放在 licenses\LibRaw 下。
+  -->
+  <ItemGroup>
+    <None Include="native/win-x64/libraw.dll" Link="libraw.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          Condition="Exists('native/win-x64/libraw.dll')" />
+    <None Include="native/win-x64/COPYRIGHT.LibRaw.txt;native/win-x64/LICENSE.LGPL-2.1.txt;native/win-x64/LICENSE.CDDL-1.0.txt"
+          Link="licenses\LibRaw\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          Condition="Exists('native/win-x64/libraw.dll')" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

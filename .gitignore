@@ -1,0 +1,18 @@
+bin/
+obj/
+publish/
+.vs/
+.idea/
+*.user
+*.suo
+TestResults/
+artifacts/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+# LibRaw 的 libraw.dll 随仓库版本化（src/ClipNest.Imaging/native/win-x64），确保克隆后即可构建 RAW 支持。
+installer/Output/
+
+# 本地截图与验证脚本
+.screenshots/

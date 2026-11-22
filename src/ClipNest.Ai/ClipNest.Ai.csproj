@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ClipNest.Core\ClipNest.Core.csproj" />
+    <ProjectReference Include="..\ClipNest.Data\ClipNest.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- DirectML 构建自带 CPU 执行器，因此不需要再引用 Microsoft.ML.OnnxRuntime；
+         两个包都携带同名原生库 onnxruntime.dll，同时引用会互相覆盖。 -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="3.0.0" />
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

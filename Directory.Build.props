@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <!-- 发布脚本读取此版本号，同时写入程序集与安装包文件名。 -->
+    <Version>0.1.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- 程序集与文件属性里的作者/版权信息。 -->
+    <Company>JDBeWL</Company>
+    <Authors>JDBeWL</Authors>
+    <Copyright>© 2026 JDBeWL</Copyright>
+
+    <!--
+      DirectML 的 NuGet 包只在 PlatformTarget 明确时复制 DirectML.dll（18MB）。
+      应用是 Windows 桌面程序，没有 32 位需求，统一固定为 x64 即可，
+      同时也让 onnxruntime.dll 不再走 AnyCPU 的探测路径。
+    -->
+    <PlatformTarget Condition="'$(PlatformTarget)' == ''">x64</PlatformTarget>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,42 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- 悬浮玻璃面板，左上亮、右下暗的折射高光边，模拟 visionOS 的镜面边缘。 -->
+  <Style Selector="Border.VisionGlass">
+    <Setter Property="CornerRadius" Value="20" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Glass.Edge}" />
+    <Setter Property="BoxShadow" Value="0 12 32 0 #45000000" />
+  </Style>
+
+  <!-- 顶部悬浮药丸，沿用同一套高光边，圆角压到胶囊半径。 -->
+  <Style Selector="Border.VisionPill">
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Pill.Edge}" />
+    <!--
+      这里不能放阴影。胶囊内衬位于 ExperimentalAcrylicBorder 之内，而那个控件的
+      ClipToBounds 是按矩形裁的，向外的阴影会被切掉四个角，在浅色底上留下一圈直角灰块。
+      投影统一由外层容器承担。
+    -->
+  </Style>
+
+  <!-- 图片卡片，悬停时轻微浮起并放大，使用苹果式的柔和阻尼。 -->
+  <Style Selector="Border.GalleryCard">
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="RenderTransform" Value="scale(1.0)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Duration="0:0:0.25" Easing="QuinticEaseOut" Property="RenderTransform" />
+        <BoxShadowsTransition Duration="0:0:0.25" Property="BoxShadow" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.GalleryCard:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1.03)" />
+    <Setter Property="ZIndex" Value="10" />
+    <Setter Property="BoxShadow" Value="0 14 28 0 #66000000" />
+  </Style>
+
+</Styles>

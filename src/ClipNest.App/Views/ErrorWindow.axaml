@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:ClipNest.App.Controls"
+        x:Class="ClipNest.App.Views.ErrorWindow"
+        Title="ClipNest" Width="600" SizeToContent="Height"
+        CanResize="False" WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Brush.Surface.Window}"
+        FontFamily="{StaticResource Font.UI}">
+  <StackPanel Margin="32" Spacing="16">
+    <Border Width="44" Height="44" CornerRadius="12"
+            Background="{DynamicResource Brush.State.DangerSubtle}"
+            HorizontalAlignment="Left" Margin="0,0,0,4">
+      <controls:StrokeIcon Data="{StaticResource Icon.Warning}" Width="20" Height="20" Thickness="1.6"
+                           Foreground="{DynamicResource Brush.State.Danger}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Border>
+    <TextBlock Text="暂时无法打开图库" FontFamily="{StaticResource Font.Display}"
+               FontSize="20" FontWeight="SemiBold"
+               Foreground="{DynamicResource Brush.Text.Primary}" />
+    <TextBlock x:Name="MessageText" FontSize="12" TextWrapping="Wrap"
+               Foreground="{DynamicResource Brush.Text.Secondary}" LineHeight="20" />
+    <Border Background="{DynamicResource Brush.Surface.Card}"
+            BorderBrush="{DynamicResource Brush.Hairline}" BorderThickness="1"
+            CornerRadius="10" Padding="12" Margin="0,4,0,0">
+      <StackPanel Spacing="6">
+        <TextBlock Text="数据目录" Classes="caption" />
+        <TextBlock x:Name="PathText" Classes="meta" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+    <TextBlock Text="你的图片不会被修改。请检查目录权限或磁盘状态后重试。"
+               Classes="caption" TextWrapping="Wrap" LineHeight="18" />
+    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
+                Margin="0,4,0,0">
+      <Button Classes="ghost" Content="打开数据目录" Click="OpenFolder_Click" />
+      <Button Classes="primary" Content="退出应用" Click="Close_Click" />
+    </StackPanel>
+  </StackPanel>
+</Window>

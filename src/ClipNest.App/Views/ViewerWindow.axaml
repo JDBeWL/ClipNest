@@ -1,0 +1,257 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:ClipNest.App.Controls"
+        x:Class="ClipNest.App.Views.ViewerWindow"
+        Title="查看器" Width="1280" Height="860"
+        MinWidth="720" MinHeight="520"
+        TransparencyLevelHint="AcrylicBlur, Mica, Blur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        FontFamily="{StaticResource Font.UI}">
+  <Window.Styles>
+    <!-- 图片舞台上的翻页按钮，悬浮玻璃圆钮，与主界面的药丸同一层材质。 -->
+    <Style Selector="Button.viewerNav">
+      <Setter Property="Width" Value="40" />
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Nav.Fill}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Nav.Edge}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" />
+          <TransformOperationsTransition Duration="0:0:0.15"
+                                        Easing="QuinticEaseOut" Property="RenderTransform" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button.viewerNav:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+      <Setter Property="RenderTransform" Value="scale(1.04)" />
+    </Style>
+    <Style Selector="Button.viewerNav:pressed">
+      <Setter Property="RenderTransform" Value="scale(0.96)" />
+    </Style>
+    <Style Selector="Button.viewerNav:disabled">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <!--
+      查看器的胶囊落在近黑画布上，VisionPill 默认那条 30% 白高光边会读成一圈线框；
+      压到 10% 并去掉内层阴影（外层已有投影），才和主界面的胶囊同一种质感。
+    -->
+    <Style Selector="Border.VisionPill">
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="BoxShadow" Value="none" />
+    </Style>
+
+    <!-- 缩放条按钮无底色，悬停时浮出柔光。 -->
+    <Style Selector="Button.viewerZoom">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button.viewerZoom:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="Button.viewerZoom:pressed">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Active}" />
+    </Style>
+  </Window.Styles>
+
+  <Grid x:Name="RootLayout" ClipToBounds="True">
+    <!-- 与主界面共享同一层环境底，压暗并叠加轻微蓝色环境光。 -->
+    <Border Background="{DynamicResource Brush.Overlay.Scrim}" />
+    <Border Background="{DynamicResource Brush.Overlay.Ambient}" />
+    <Border Background="{DynamicResource Brush.Surface.Shell}" ClipToBounds="True">
+      <Grid RowDefinitions="Auto,*">
+
+        <!--
+          顶部整条都是拖动区。外层不留边距、撑到窗口边缘，内层才排内容；
+          窗口两侧与上方的空白也必须能拖动窗口。
+        -->
+        <Grid Grid.Row="0" Height="56" Background="Transparent"
+              PointerPressed="TitleBar_PointerPressed">
+          <!-- 右侧留出窗口控制条，文件名过长时在这里截断，不会伸到按钮下方。 -->
+          <!-- 与主界面的胶囊同构，依次为投影、亚克力与高光边内衬，高度固定 40。 -->
+          <!-- 不设固定上限。宽度跟着可用空间走，只有到达边界时省略。 -->
+          <Border CornerRadius="20" Margin="18,10,146,6"
+                  HorizontalAlignment="Left" VerticalAlignment="Center"
+                  BoxShadow="{DynamicResource Shadow.Pill}">
+            <ExperimentalAcrylicBorder ClipToBounds="True" Height="40" CornerRadius="20" Material="{DynamicResource Material.Acrylic}">
+              <Border Classes="VisionPill" Background="{DynamicResource Brush.Pill.Fill}" Padding="12,0">
+                <Grid ColumnDefinitions="Auto,*">
+                  <Border Width="24" Height="24" CornerRadius="8" VerticalAlignment="Center"
+                          Background="{DynamicResource Brush.Surface.Card}">
+                    <controls:StrokeIcon Data="{StaticResource Icon.Photo}" Width="14" Height="14"
+                                         Thickness="1.6"
+                                         Foreground="{DynamicResource Brush.Text.Secondary}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="2" Margin="10,0,0,0"
+                              VerticalAlignment="Center">
+                    <TextBlock x:Name="FileNameText" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brush.Text.Primary}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="MetaText" FontSize="12" Foreground="{DynamicResource Brush.Text.Secondary}"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </ExperimentalAcrylicBorder>
+          </Border>
+        </Grid>
+
+        <!-- 舞台为圆角图片卡片，直接铺在暗色画布上，四周留白一致。 -->
+        <Grid x:Name="Stage" Grid.Row="1" Margin="18,12,18,76">
+          <Border CornerRadius="14" BoxShadow="{DynamicResource Shadow.Stage}">
+            <Border CornerRadius="14" ClipToBounds="True"
+                    Background="{DynamicResource Brush.Surface.Content}"
+                    BorderBrush="{DynamicResource Brush.Border.Subtle}" BorderThickness="1">
+              <ScrollViewer x:Name="ImageScroll"
+                            HorizontalScrollBarVisibility="Hidden"
+                            VerticalScrollBarVisibility="Hidden"
+                            Background="Transparent"
+                            PointerPressed="ImageScroll_PointerPressed"
+                            PointerMoved="ImageScroll_PointerMoved"
+                            PointerReleased="ImageScroll_PointerReleased"
+                            PointerCaptureLost="ImageScroll_PointerCaptureLost">
+                <Image x:Name="ImageView" Stretch="Fill"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </ScrollViewer>
+            </Border>
+          </Border>
+
+          <Button x:Name="PrevButton" Classes="viewerNav" HorizontalAlignment="Left"
+                  VerticalAlignment="Center" Margin="16,0,0,0" Click="Prev_Click"
+                  ToolTip.Tip="上一张 (←)">
+            <controls:StrokeIcon Data="{StaticResource Icon.ChevronLeft}" Width="16" Height="16"
+                                 Thickness="1.6" />
+          </Button>
+          <Button x:Name="NextButton" Classes="viewerNav" HorizontalAlignment="Right"
+                  VerticalAlignment="Center" Margin="0,0,16,0" Click="Next_Click"
+                  ToolTip.Tip="下一张 (→)">
+            <controls:StrokeIcon Data="{StaticResource Icon.ChevronRight}" Width="16" Height="16"
+                                 Thickness="1.6" />
+          </Button>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <!-- 底部悬浮信息：左侧路径药丸，右侧合并后的操作与缩放坞，不再用整条底栏切开画面。 -->
+    <Grid VerticalAlignment="Bottom" Margin="18,0,18,20" ColumnDefinitions="*,Auto">
+      <Border CornerRadius="20" HorizontalAlignment="Left" Margin="0,0,12,0"
+              BoxShadow="{DynamicResource Shadow.Pill}">
+        <ExperimentalAcrylicBorder ClipToBounds="True" Height="40" CornerRadius="20" Material="{DynamicResource Material.Acrylic}">
+          <Border Classes="VisionPill" Background="{DynamicResource Brush.Pill.Fill}" Padding="12,0">
+            <Grid ColumnDefinitions="Auto,*">
+              <controls:StrokeIcon Data="{StaticResource Icon.Folder}" Width="12" Height="12"
+                                   Thickness="1.6" Foreground="{DynamicResource Brush.Text.Tertiary}"
+                                   VerticalAlignment="Center" />
+              <TextBlock x:Name="InfoText" Grid.Column="1" FontSize="12" Foreground="{DynamicResource Brush.Text.Secondary}"
+                         Margin="8,0,0,0" TextTrimming="CharacterEllipsis"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+        </ExperimentalAcrylicBorder>
+      </Border>
+
+      <!--
+        右下角合并成一条操作坞：左侧是图片操作，右侧是缩放步进。
+        复制后的提示复用左侧路径文字，不额外占用画面。
+      -->
+      <Border Grid.Column="1" CornerRadius="20" VerticalAlignment="Center"
+              BoxShadow="{DynamicResource Shadow.Pill}">
+        <ExperimentalAcrylicBorder ClipToBounds="True" Height="40" CornerRadius="20" Material="{DynamicResource Material.Acrylic}">
+          <Border Classes="VisionPill" Background="{DynamicResource Brush.Pill.Fill}" Padding="4">
+            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+              <Button Classes="viewerZoom" Width="32" Height="32" Click="CopyImage_Click"
+                      ToolTip.Tip="复制图片 (Ctrl+C)">
+                <controls:StrokeIcon Data="{StaticResource Icon.Copy}" Width="14" Height="14"
+                                     Thickness="1.6" />
+              </Button>
+              <Button Classes="viewerZoom" Width="32" Height="32" Click="CopyFile_Click"
+                      ToolTip.Tip="复制文件 (Ctrl+Shift+C)">
+                <controls:StrokeIcon Data="{StaticResource Icon.File}" Width="14" Height="14"
+                                     Thickness="1.6" />
+              </Button>
+              <Button Classes="viewerZoom" Width="32" Height="32" Click="CopyPath_Click"
+                      ToolTip.Tip="复制文件路径">
+                <controls:StrokeIcon Data="{StaticResource Icon.Hash}" Width="14" Height="14"
+                                     Thickness="1.6" />
+              </Button>
+              <Border Width="1" Height="16" Margin="2,0"
+                      Background="{DynamicResource Brush.Border.Strong}" />
+              <Button Classes="viewerZoom" Width="32" Height="32" Click="Reveal_Click"
+                      ToolTip.Tip="在资源管理器中显示">
+                <controls:StrokeIcon Data="{StaticResource Icon.Folder}" Width="14" Height="14"
+                                     Thickness="1.6" />
+              </Button>
+              <Button x:Name="DeleteButton" Classes="viewerZoom" Width="32" Height="32"
+                      Click="Delete_Click" ToolTip.Tip="删除 (Delete)">
+                <controls:StrokeIcon Data="{StaticResource Icon.Trash}" Width="14" Height="14"
+                                     Thickness="1.6"
+                                     Foreground="{DynamicResource Brush.State.Danger}" />
+              </Button>
+
+              <Border Width="1" Height="16" Margin="2,0"
+                      Background="{DynamicResource Brush.Border.Strong}" />
+
+              <!-- 缩放使用按钮步进与百分比显示，点击百分比回到 100%。 -->
+              <Button Classes="viewerZoom" Width="30" Height="30" Click="ZoomOut_Click"
+                      ToolTip.Tip="缩小">
+                <controls:StrokeIcon Data="{StaticResource Icon.WinMinimize}" Width="12" Height="12"
+                                     Thickness="1.6" />
+              </Button>
+              <Button Classes="viewerZoom" Width="54" Height="30" Click="ZoomReset_Click"
+                      ToolTip.Tip="回到 100%">
+                <TextBlock x:Name="ZoomText" Text="100%" FontSize="12" Foreground="{DynamicResource Brush.Text.Primary}" />
+              </Button>
+              <Button Classes="viewerZoom" Width="30" Height="30" Click="ZoomIn_Click"
+                      ToolTip.Tip="放大">
+                <controls:StrokeIcon Data="{StaticResource Icon.Plus}" Width="12" Height="12"
+                                     Thickness="1.6" />
+              </Button>
+            </StackPanel>
+          </Border>
+        </ExperimentalAcrylicBorder>
+      </Border>
+    </Grid>
+
+    <!-- 窗口控制固定在右上角，与主窗口同一套按钮与顺序。 -->
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+      <Button Classes="win" Click="Minimize_Click" Focusable="False" ToolTip.Tip="最小化">
+        <controls:StrokeIcon Data="{StaticResource Icon.WinMinimize}" Width="12" Height="12" Thickness="1.5" />
+      </Button>
+      <Button x:Name="MaxRestoreButton" Classes="win"
+              Click="MaximizeRestore_Click" Focusable="False" ToolTip.Tip="最大化">
+        <Panel>
+          <controls:StrokeIcon x:Name="MaximizeIcon" Data="{StaticResource Icon.WinMaximize}"
+                               Width="12" Height="12" Thickness="1.5" />
+          <controls:StrokeIcon x:Name="RestoreIcon" Data="{StaticResource Icon.WinRestore}"
+                               Width="12" Height="12" Thickness="1.5" IsVisible="False" />
+        </Panel>
+      </Button>
+      <Button Classes="win close" Click="Close_Click" Focusable="False" ToolTip.Tip="关闭 (Esc)">
+        <controls:StrokeIcon Data="{StaticResource Icon.WinClose}" Width="12" Height="12" Thickness="1.5" />
+      </Button>
+    </StackPanel>
+  </Grid>
+</Window>

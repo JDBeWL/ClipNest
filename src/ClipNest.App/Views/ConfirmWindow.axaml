@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:ClipNest.App.Controls"
+        x:Class="ClipNest.App.Views.ConfirmWindow"
+        Title="ClipNest" Width="440" SizeToContent="Height"
+        CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        TransparencyLevelHint="AcrylicBlur, Mica, Blur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        FontFamily="{StaticResource Font.UI}">
+  <Grid x:Name="RootLayout" ClipToBounds="True">
+    <!-- 与主窗口共用同一层环境底，确认框不会在暗色界面里闪出一块系统白条。 -->
+    <Border Background="{DynamicResource Brush.Overlay.Scrim}" />
+    <Border Background="{DynamicResource Brush.Overlay.Ambient}" />
+    <Border Background="{DynamicResource Brush.Surface.Shell}" ClipToBounds="True">
+      <Grid RowDefinitions="Auto,Auto">
+
+        <!-- 顶部整条为拖动区，右侧只保留关闭；模态窗口没有最小化与最大化的语义。 -->
+        <Grid Grid.Row="0" Height="40" Background="Transparent"
+              PointerPressed="TitleBar_PointerPressed">
+          <StackPanel Orientation="Horizontal" Spacing="8"
+                      Margin="18,0,0,0" VerticalAlignment="Center">
+            <Image Width="16" Height="16" VerticalAlignment="Center"
+                   RenderOptions.BitmapInterpolationMode="HighQuality"
+                   Source="avares://ClipNest.App/Assets/app-icon.png" />
+            <TextBlock Text="ClipNest" FontSize="12" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Brush.Text.Tertiary}" />
+          </StackPanel>
+          <Button Classes="win close" HorizontalAlignment="Right" VerticalAlignment="Top"
+                  Click="CloseDialog_Click" Focusable="False" ToolTip.Tip="关闭 (Esc)">
+            <controls:StrokeIcon Data="{StaticResource Icon.WinClose}" Width="12" Height="12"
+                                 Thickness="1.5" />
+          </Button>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Margin="24,6,24,22" Spacing="14">
+          <TextBlock x:Name="TitleText" FontFamily="{StaticResource Font.Display}"
+                     FontSize="18" FontWeight="SemiBold"
+                     Foreground="{DynamicResource Brush.Text.Primary}" TextWrapping="Wrap" />
+          <TextBlock x:Name="MessageText" FontSize="12" TextWrapping="Wrap" LineHeight="20"
+                     Foreground="{DynamicResource Brush.Text.Secondary}" />
+
+          <Border x:Name="DetailShell" Background="{DynamicResource Brush.Surface.Card}"
+                  BorderBrush="{DynamicResource Brush.Hairline}" BorderThickness="1"
+                  CornerRadius="10" Padding="12">
+            <TextBlock x:Name="DetailText" Classes="meta" TextWrapping="Wrap"
+                       MaxLines="4" TextTrimming="CharacterEllipsis" />
+          </Border>
+
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
+                      Margin="0,4,0,0">
+            <Button x:Name="CancelButton" Classes="ghost" Content="取消"
+                    IsCancel="True" Click="Cancel_Click" />
+            <Button x:Name="ConfirmButton" Classes="destructive" Click="Confirm_Click" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
