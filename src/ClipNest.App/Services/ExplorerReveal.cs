@@ -1,31 +1,19 @@
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace ClipNest.App.Services;
 
 /// <summary>
-/// 在资源管理器中定位文件。目标文件夹已打开时在原窗口里选中并置前，标签页也算已打开；
-/// 只有未打开的文件夹才新开窗口。
+/// 在资源管理器中定位文件。文件夹已打开时由系统复用原窗口，
+/// 未打开时按系统设置新开窗口或标签页。
 /// </summary>
 public static class ExplorerReveal
 {
-    // 选中、取消其余选中、滚入视野、聚焦。
-    private const int SelectFlags = 0x1 | 0x4 | 0x8 | 0x10;
-    private const int SwRestore = 9;
-
     public static bool Reveal(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath)) return false;
 
-        try
-        {
-            if (TrySelectInOpenWindow(filePath)) return true;
-        }
-        catch
-        {
-            // COM 不可用时退回新开窗口。
-        }
+        if (TryOpenFolderAndSelect(filePath)) return true;
 
         try
         {
@@ -41,75 +29,55 @@ public static class ExplorerReveal
         }
     }
 
-    // Shell.Application 只能通过 dynamic 调用。TrimMode=partial 下 ClipNest.App
-    // 不会被裁剪，dynamic 依赖的成员与构造函数都完整保留，这里的裁剪警告是误报。
-    [UnconditionalSuppressMessage(
-        "Trimming",
-        "IL2026",
-        Justification = "本程序集不做裁剪，dynamic 调用的成员保留。")]
-    [UnconditionalSuppressMessage(
-        "Trimming",
-        "IL2072",
-        Justification = "本程序集不做裁剪，Shell.Application 类型由系统注册，不参与裁剪。")]
-    private static bool TrySelectInOpenWindow(string filePath)
+    // 不得改用 Shell.Application 自动化。裁剪发布下 dynamic 的 COM 绑定
+    // 会在 ITypeInfo 上触发访问冲突并终止进程，此处只依赖 shell32 的导出函数。
+    private static bool TryOpenFolderAndSelect(string filePath)
     {
         var folder = Path.GetDirectoryName(filePath);
         if (string.IsNullOrEmpty(folder)) return false;
 
-        var shellType = Type.GetTypeFromProgID("Shell.Application");
-        if (shellType is null) return false;
-        dynamic shell = Activator.CreateInstance(shellType)!;
-
-        foreach (dynamic window in shell.Windows())
-        {
-            string? url;
-            try
-            {
-                url = window.LocationURL as string;
-            }
-            catch
-            {
-                continue;
-            }
-            if (!MatchesFolder(url, folder)) continue;
-
-            window.Document.SelectItem(filePath, SelectFlags);
-            var handle = new IntPtr(Convert.ToInt64(window.HWND));
-            if (IsIconic(handle)) ShowWindow(handle, SwRestore);
-            SetForegroundWindow(handle);
-            return true;
-        }
-
-        return false;
-    }
-
-    internal static bool MatchesFolder(string? locationUrl, string folder)
-    {
-        if (string.IsNullOrEmpty(locationUrl) ||
-            !locationUrl.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
+        var folderPidl = IntPtr.Zero;
+        var filePidl = IntPtr.Zero;
+        var items = IntPtr.Zero;
         try
         {
-            return string.Equals(
-                new Uri(locationUrl).LocalPath.TrimEnd(Path.DirectorySeparatorChar),
-                folder.TrimEnd(Path.DirectorySeparatorChar),
-                StringComparison.OrdinalIgnoreCase);
+            if (SHParseDisplayName(folder, IntPtr.Zero, out folderPidl, 0, out _) < 0 ||
+                folderPidl == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            uint count = 0;
+            if (SHParseDisplayName(filePath, IntPtr.Zero, out filePidl, 0, out _) >= 0 &&
+                filePidl != IntPtr.Zero)
+            {
+                // apidl 取相对该文件夹的子项 PIDL，绝对 PIDL 的最后一项即此子项。
+                items = Marshal.AllocHGlobal(IntPtr.Size);
+                Marshal.WriteIntPtr(items, ILFindLastID(filePidl));
+                count = 1;
+            }
+
+            return SHOpenFolderAndSelectItems(folderPidl, count, items, 0) >= 0;
         }
-        catch (UriFormatException)
+        finally
         {
-            return false;
+            if (items != IntPtr.Zero) Marshal.FreeHGlobal(items);
+            if (filePidl != IntPtr.Zero) ILFree(filePidl);
+            if (folderPidl != IntPtr.Zero) ILFree(folderPidl);
         }
     }
 
-    [DllImport("user32.dll")]
-    private static extern bool IsIconic(IntPtr hWnd);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern int SHParseDisplayName(
+        string pszName, IntPtr pbc, out IntPtr ppidl, uint sfgaoIn, out uint psfgaoOut);
 
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("shell32.dll")]
+    private static extern int SHOpenFolderAndSelectItems(
+        IntPtr pidlFolder, uint cidl, IntPtr apidl, uint dwFlags);
 
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("shell32.dll")]
+    private static extern IntPtr ILFindLastID(IntPtr pidl);
+
+    [DllImport("shell32.dll")]
+    private static extern void ILFree(IntPtr pidl);
 }
