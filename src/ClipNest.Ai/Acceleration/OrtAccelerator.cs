@@ -13,8 +13,9 @@ public enum AcceleratorKind
 /// 会话创建的唯一入口。默认尝试 DirectML，即 Windows 上的 DX12 GPU 路径，失败则退回 CPU。
 /// </summary>
 /// <remarks>
-/// CUDA 只覆盖 NVIDIA，ROCm 与 MIGraphX 的 ONNX Runtime 只有 Linux 构建，OpenVINO 只覆盖 Intel。
-/// Windows 上覆盖 AMD、NVIDIA 与 Intel 核显的通用路径只有 DirectML，因此默认尝试它。
+/// CUDA 只覆盖 NVIDIA，ROCm 与 MIGraphX 的 ONNX Runtime 只有 Linux 构建，
+/// OpenVINO 只覆盖 Intel。Windows 上覆盖 AMD、NVIDIA 与 Intel 核显的通用路径只有 DirectML，
+/// 因此默认尝试它。
 /// </remarks>
 public static class OrtAccelerator
 {
@@ -33,11 +34,21 @@ public static class OrtAccelerator
         }
     });
 
-    /// <summary>上一次成功创建的会话用了什么设备。</summary>
+    /// <summary>上一次请求 GPU 的会话实际使用的设备。固定走 CPU 的会话不影响该值。</summary>
     public static AcceleratorKind Active { get; private set; } = AcceleratorKind.Cpu;
 
-    /// <summary>是否已经真正创建过会话。没有会话时不能把「尚未推理」报告为「在用 CPU」。</summary>
+    /// <summary>是否已创建过请求 GPU 的会话。没有这类会话时不能把「尚未推理」报告为「在用 CPU」。</summary>
     public static bool HasSession { get; private set; }
+
+    /// <summary>
+    /// ONNX Runtime 的算子线程数；0 表示按逻辑核心数取一半。
+    /// 改动只影响之后创建的会话，已有会话保持原线程数。
+    /// </summary>
+    public static int IntraOpThreads { get; set; }
+
+    /// <summary>实际使用的线程数，至少 1。</summary>
+    public static int ResolveIntraOpThreads() =>
+        IntraOpThreads > 0 ? IntraOpThreads : Math.Max(1, Environment.ProcessorCount / 2);
 
     /// <summary>用户是否显式要求关闭加速（CLIPNEST_ACCEL=cpu）。</summary>
     public static bool DisabledBySettings =>
@@ -71,8 +82,13 @@ public static class OrtAccelerator
         }
 
         var cpu = new InferenceSession(modelPath, BuildOptions(useGpu: false));
-        Active = AcceleratorKind.Cpu;
-        HasSession = true;
+        if (allowGpu)
+        {
+            // 只有请求过 GPU 的会话才更新状态，避免 CLIP 这类固定走 CPU 的会话把显示改成 CPU。
+            Active = AcceleratorKind.Cpu;
+            HasSession = true;
+        }
+
         return cpu;
     }
 
@@ -82,7 +98,7 @@ public static class OrtAccelerator
         {
             GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
             InterOpNumThreads = 1,
-            IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 2),
+            IntraOpNumThreads = ResolveIntraOpThreads(),
             ExecutionMode = ExecutionMode.ORT_SEQUENTIAL
         };
 
@@ -96,8 +112,8 @@ public static class OrtAccelerator
     }
 
     /// <summary>
-    /// 供状态栏显示的一行文字。会话尚未创建时报告当前能力，而不是上一次使用的设备；
-    /// 否则刚启动、还没有待标注任务时会显示 CPU，看起来像加速未生效。
+    /// 供设置页显示的一行文字。没有请求 GPU 的会话时报告当前能力；
+    /// 若直接读上一次设备，刚启动、尚无标注任务时会显示 CPU，看起来像加速未生效。
     /// </summary>
     public static string Describe()
     {

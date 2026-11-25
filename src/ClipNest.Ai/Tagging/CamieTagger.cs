@@ -13,7 +13,7 @@ namespace ClipNest.Ai.Tagging;
 /// 预处理按模型定义执行，等比缩放后居中补边，通道顺序为 RGB，布局为 NCHW；
 /// v1 保持 0..1，v2 按 ImageNet 均值与标准差归一化。
 /// </summary>
-public sealed class CamieTagger : ITagger
+public sealed class CamieTagger : ITagger, ITagPrefetcher
 {
     private readonly TagModelManager _models;
     private readonly IAiImageSource _images;
@@ -22,6 +22,7 @@ public sealed class CamieTagger : ITagger
     private readonly SKColor _padColor;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _initLock = new();
+    private readonly PixelPrefetch _prefetch = new();
 
     private string[]? _names;
     private string[]? _categories;
@@ -46,19 +47,23 @@ public sealed class CamieTagger : ITagger
 
     public bool IsAvailable => _models.IsReady;
 
+    /// <summary>预取下一张图片的输入。像素数据在解码后即驻留，与当前图片的推理并行。</summary>
+    public void Prefetch(string path) =>
+        _prefetch.Start(path, () => LoadPixelsAsync(path, CancellationToken.None));
+
     public async Task<AiTagResult> TagAsync(string path, CancellationToken ct = default)
     {
+        // 解码与预处理不占用推理会话，可与上一张的推理重叠；命中预取时直接复用结果。
+        var pixels = await (_prefetch.Take(path) ?? LoadPixelsAsync(path, ct))
+            .ConfigureAwait(false);
+
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            using var source = await _images.LoadAsync(path, _imageSize, ct).ConfigureAwait(false)
-                ?? throw new InvalidOperationException($"无法解码图片：{path}");
-
             // 首次加载数百 MB 的模型需要数秒，放到后台线程避免卡住 UI。
             return await Task.Run(() =>
             {
                 var (names, categories, session) = EnsureInitialized();
-                var pixels = ToPixels(source);
                 _lastUsedUtc = DateTime.UtcNow;
                 return Run(session, names, categories, pixels);
             }, ct).ConfigureAwait(false);
@@ -74,8 +79,10 @@ public sealed class CamieTagger : ITagger
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (_session is null) return;
             if (DateTime.UtcNow - _lastUsedUtc < idleFor) return;
+
+            _prefetch.Clear();
+            if (_session is null) return;
 
             _session.Dispose();
             _session = null;
@@ -96,8 +103,18 @@ public sealed class CamieTagger : ITagger
         }
 
         _disposed = true;
+        _prefetch.Clear();
         _session?.Dispose();
         _gate.Dispose();
+    }
+
+    private async Task<float[]> LoadPixelsAsync(string path, CancellationToken ct)
+    {
+        using var source = await _images.LoadAsync(path, _imageSize, ct)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"无法解码图片：{path}");
+
+        return await Task.Run(() => ToPixels(source), ct).ConfigureAwait(false);
     }
 
     private (string[] Names, string[] Categories, InferenceSession Session) EnsureInitialized()

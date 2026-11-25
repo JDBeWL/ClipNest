@@ -69,11 +69,13 @@ internal static partial class NpyFloatArray
 
     private static void ReadFloat16(Stream stream, float[] target)
     {
-        var buffer = new byte[2];
+        var bytes = new byte[target.Length * 2];
+        stream.ReadExactly(bytes);
+
+        var halves = MemoryMarshal.Cast<byte, Half>(bytes.AsSpan());
         for (var i = 0; i < target.Length; i++)
         {
-            stream.ReadExactly(buffer);
-            target[i] = (float)BitConverter.ToHalf(buffer);
+            target[i] = (float)halves[i];
         }
     }
 

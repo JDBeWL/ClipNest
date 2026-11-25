@@ -22,6 +22,9 @@ public sealed class AppSettings
     /// <summary>是否自动为新图片生成语义向量；关闭后索引队列暂停领取新任务。</summary>
     public bool AutoIndexingEnabled { get; set; } = true;
 
+    /// <summary>ONNX 推理线程数；0 表示按逻辑核心数取一半。</summary>
+    public int InferenceThreads { get; set; }
+
     /// <summary>
     /// 普通状态下的窗口位置与尺寸。位置是物理像素，尺寸是 DIP；
     /// 为空表示第一次启动，交给系统按工作区居中。

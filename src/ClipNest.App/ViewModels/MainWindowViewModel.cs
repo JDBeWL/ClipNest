@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using ClipNest.Ai;
+using ClipNest.Ai.Acceleration;
 using ClipNest.Ai.Models;
 using ClipNest.Ai.Tagging;
 using ClipNest.App.Controls;
@@ -99,6 +100,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _defaultTagModelId = "";
     [ObservableProperty] private bool _isTagModelReady;
     [ObservableProperty] private bool _isTagModelDownloading;
+    /// <summary>推理设备文案，随会话创建刷新；DirectML 不可用时显示 CPU。</summary>
+    [ObservableProperty] private string _accelerationStatus = "";
+    /// <summary>推理线程数；识别在后台运行，线程越多占用 CPU 越多。</summary>
+    [ObservableProperty] private decimal? _inferenceThreads;
+    /// <summary>识别进度（0..1），仅用于设置页的细进度条。</summary>
+    [ObservableProperty] private double _tagProgress;
+    /// <summary>是否有待识别的图片；为 false 时隐藏进度条。</summary>
+    [ObservableProperty] private bool _isTagging;
     [ObservableProperty] private bool _isReidentifying;
     [ObservableProperty] private bool _isSettingsOpen;
     [ObservableProperty] private SettingsPageSection _settingsSection = SettingsPageSection.Appearance;
@@ -131,6 +140,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public bool HasReadyTagModel => TagModels.Any(model => model.IsReady);
     public bool CanReidentifyTags => HasReadyTagModel && !IsReidentifying;
     public bool HasFolderTagModels => FolderTagModels.Count > 0;
+
+    /// <summary>线程数上限，取当前机器的逻辑核心数。</summary>
+    public decimal MaxInferenceThreads => Environment.ProcessorCount;
 
     /// <summary>数据目录，用于设置页展示与打开。</summary>
     public string DataDirectory { get; }
@@ -232,6 +244,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _isInspectorOpen = settings.Settings.InspectorOpen;
             _thumbnailSize = Math.Clamp(settings.Settings.ThumbnailSize, 132, 340);
             _sortMode = NormalizeSortMode(settings.Settings.SortMode);
+            _inferenceThreads = ResolveInferenceThreads(settings.Settings.InferenceThreads);
         }
 
         _semanticEnabled = settings?.Settings.SemanticEnabled ?? false;
@@ -287,6 +300,29 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     partial void OnIsReidentifyingChanged(bool value) =>
         OnPropertyChanged(nameof(CanReidentifyTags));
+
+    /// <summary>0 表示自动，按核心数折半，与运行时的默认值一致。</summary>
+    private static decimal ResolveInferenceThreads(int configured) =>
+        configured > 0
+            ? Math.Clamp(configured, 1, Environment.ProcessorCount)
+            : Math.Max(1, Environment.ProcessorCount / 2);
+
+    partial void OnInferenceThreadsChanged(decimal? value)
+    {
+        if (value is null) return;
+
+        var threads = Math.Clamp((int)value.Value, 1, Environment.ProcessorCount);
+        OrtAccelerator.IntraOpThreads = threads;
+
+        if (_settings is not null)
+        {
+            _settings.Settings.InferenceThreads = threads;
+            _settings.Save();
+        }
+
+        // 已有会话按旧线程数创建，释放后由下一张识别按新设置重建。
+        _ = _tagQueue?.ReleaseSessionsAsync();
+    }
 
     partial void OnAutoTaggingEnabledChanged(bool value)
     {
@@ -420,6 +456,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>刷新标注状态文字。默认模型缺失、未下载与运行中分别给出对应文案。</summary>
     public async Task RefreshTagModelStatusAsync()
     {
+        // 会话创建后才能确定实际设备，未推理时显示当前能力。
+        AccelerationStatus = $"推理设备：{OrtAccelerator.Describe()}";
         RefreshTagModelRows();
 
         // 下载过程中保留文件与进度文案，等其他入口的刷新结束后再恢复覆盖率状态。
@@ -427,6 +465,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (_tagCatalog is null)
         {
+            IsTagging = false;
             TagModelStatus = "识别不可用";
             return;
         }
@@ -435,6 +474,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IsTagModelReady = entry.Manager.IsReady;
         if (!IsTagModelReady)
         {
+            IsTagging = false;
             TagModelStatus = $"{entry.Definition.DisplayName} 未安装";
             return;
         }
@@ -442,14 +482,27 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (_tagQueue is null) return;
 
         var stats = await _tagQueue.GetStatsAsync();
+        ApplyTagProgress(stats.Done, stats.Pending);
         if (!AutoTaggingEnabled && !IsReidentifying)
         {
+            IsTagging = false;
             TagModelStatus = "识别已暂停";
             return;
         }
 
-        TagModelStatus = stats.Pending > 0 ? "正在识别…" : "识别就绪";
+        TagModelStatus = FormatTaggingStatus(stats.Done, stats.Pending);
     }
+
+    private void ApplyTagProgress(int done, int pending)
+    {
+        var total = done + pending;
+        TagProgress = total > 0 ? (double)done / total : 0;
+        IsTagging = pending > 0;
+    }
+
+    /// <summary>识别状态文案，待处理时带上已识别数量。</summary>
+    private static string FormatTaggingStatus(int done, int pending) =>
+        pending > 0 ? $"正在识别… 已识别 {done} / {done + pending}" : "识别就绪";
 
     private void OnTaggingProgressChanged(object? sender, TaggingProgress progress)
     {
@@ -457,10 +510,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             var wasReidentifying = IsReidentifying;
 
+            // 首张推理结束后会话已创建，此时显示的才是实际设备。
+            AccelerationStatus = $"推理设备：{OrtAccelerator.Describe()}";
+
             // 下载期间保留文件与进度文案，队列的覆盖状态不能覆盖它。
             if (!IsTagModelDownloading && (AutoTaggingEnabled || wasReidentifying))
             {
-                TagModelStatus = progress.Pending > 0 ? "正在识别…" : "识别就绪";
+                ApplyTagProgress(progress.Done, progress.Pending);
+                TagModelStatus = FormatTaggingStatus(progress.Done, progress.Pending);
             }
 
             if (wasReidentifying && progress.Pending == 0)
@@ -547,7 +604,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         StatusText = $"正在按 {entry.Definition.DisplayName} 重新分析 {folder.Name}";
     }
 
-    /// <summary>标注队列排空后的收尾：清理空标签并刷新侧栏与详情栏。</summary>
+    /// <summary>标注队列排空后的收尾，清理空标签并刷新侧栏与详情栏。</summary>
     private async Task FinishTagRefreshAsync()
     {
         try

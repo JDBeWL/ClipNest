@@ -65,6 +65,30 @@ public sealed class ModelDownloaderTests
         Assert.False(Directory.Exists(directory));
     }
 
+    [Fact]
+    public void DeleteObsolete_KeepsCurrentFilesAndNonWeights()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"clipnest-download-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var current = new ModelFile("model.onnx", "model.onnx", 4);
+            File.WriteAllBytes(Path.Combine(directory, "model.onnx"), new byte[] { 1, 2, 3, 4 });
+            File.WriteAllBytes(Path.Combine(directory, "model_fp16.onnx"), new byte[] { 1, 2, 3, 4 });
+            File.WriteAllText(Path.Combine(directory, "labels.txt"), "a");
+
+            ModelDownloader.DeleteObsolete(directory, new[] { current });
+
+            Assert.True(File.Exists(Path.Combine(directory, "model.onnx")));
+            Assert.False(File.Exists(Path.Combine(directory, "model_fp16.onnx")));
+            Assert.True(File.Exists(Path.Combine(directory, "labels.txt")));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private sealed class RangeHandler : HttpMessageHandler
     {
         private readonly byte[] _payload;

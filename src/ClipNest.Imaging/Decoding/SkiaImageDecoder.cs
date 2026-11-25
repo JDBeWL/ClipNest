@@ -21,13 +21,22 @@ public sealed class SkiaImageDecoder : IImageDecoder
         if (codec is null) return null;
 
         var info = codec.Info;
-        var target = new SKImageInfo(info.Width, info.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        var scale = maxSize > 0
+            ? Math.Min(1.0, (double)maxSize / Math.Max(info.Width, info.Height))
+            : 1.0;
+
+        // 编码器支持的缩放档位有限，先按最接近目标的档位解码，再缩到精确尺寸。
+        // 直接解码整张再缩小会让缩略图与 AI 预处理为用不到的分辨率付出时间与内存。
+        var decodeSize = scale < 1.0
+            ? codec.GetScaledDimensions((float)scale)
+            : new SKSizeI(info.Width, info.Height);
+        var target = new SKImageInfo(
+            decodeSize.Width, decodeSize.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
         using var decoded = new SKBitmap(target);
 
         var result = codec.GetPixels(target, decoded.GetPixels());
         if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) return null;
 
-        var scale = Math.Min(1.0, (double)maxSize / Math.Max(info.Width, info.Height));
         if (scale >= 1.0) return ApplyOrientation(decoded, codec.EncodedOrigin);
 
         var width = Math.Max(1, (int)Math.Round(info.Width * scale));

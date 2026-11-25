@@ -10,8 +10,8 @@ ClipNest 是一个面向 Windows 的本地图片图库，面向动漫插画与�
 - **浏览与排序**：瀑布流图库、详情栏、按拍摄时间/文件名/评分排序。
 - **批量整理**：多选后复制、移动或删除图片；删除走 Windows 回收站，可还原。
 - **标签体系**：标签按特征、角色、作品分类；支持手动修改角色与作品。
-- **AI 自动标注**：CAMIE Tagger 识别动漫角色、作品与画面特征；RAM++ 识别常规照片中的物体与场景。
-- **按文件夹选模型**：可以设置全局默认模型，也可以给单个文件夹指定不同模型，例如动漫文件夹用 CAMIE，照片文件夹用 RAM++。
+- **AI 自动标注**：CAMIE Tagger 识别动漫角色、作品与画面特征；RAM++ 与 SigLIP2 识别常规照片中的物体与场景。
+- **按文件夹选模型**：可以设置全局默认模型，也可以给单个文件夹指定不同模型，例如动漫文件夹用 CAMIE，照片文件夹用 RAM++ 或 SigLIP2。
 - **重新分析**：单张图片右键、文件夹右键或设置页都可以重新识别；显式重新分析会按模型结论重建角色与作品，手动添加的其他标签保留。
 - **语义搜索**：使用 Chinese-CLIP 把中文查询与画面内容匹配，支持“搜索文件名、标签或画面内容”。
 - **模型管理**：模型首次使用时下载，支持六分片并行下载、取消、卸载和完整性校验。
@@ -26,12 +26,14 @@ ClipNest 是一个面向 Windows 的本地图片图库，面向动漫插画与�
 | --- | --- | --- | --- | --- |
 | CAMIE Tagger v2 | 动漫角色、作品、特征（默认） | 70,527 | 约 789 MB + 7.8 MB | GPL-3.0 |
 | CAMIE Tagger v1 | 动漫角色、作品、特征 | 70,527 | 约 856 MB + 4.8 MB | GPL-3.0 |
-| RAM++ | 常规照片中的物体与场景 | 4,585 | 约 251 MB + 478 MB + 标签表 | Apache-2.0 |
+| RAM++ | 常规照片中的物体与场景 | 4,585 | 约 429 MB + 478 MB + 标签表 | Apache-2.0 |
+| SigLIP2 零样本 | 常规照片中的物体与场景 | 4,585 | 约 186 MB，标签嵌入随程序分发 | Apache-2.0 |
 | Chinese-CLIP ViT-B/16 | 中文语义搜索与索引 | 512 维向量 | 约 191 MB + 词表 | Apache-2.0 |
 
 说明：
 
-- RAM++ 只输出通用物体与场景标签，不识别角色与作品；需要动漫角色识别时请使用 CAMIE。
+- RAM++ 与 SigLIP2 只输出通用物体与场景标签，不识别角色与作品；需要动漫角色识别时请使用 CAMIE。
+- SigLIP2 按余弦相似度选标签，标签更宽泛，单张耗时低于 RAM++。
 - 首次加载模型需要较长时间；模型空闲一段时间后会释放推理会话和内存。
 - 模型下载完成后会校验字节数：文件不完整时不会被当作已安装。
 
@@ -91,7 +93,7 @@ powershell -ExecutionPolicy Bypass -File scripts/release.ps1
 
 ```powershell
 # 指定版本号，默认读取 Directory.Build.props
-powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.0
+powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.1
 
 # 只生成便携版
 powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -SkipInstaller

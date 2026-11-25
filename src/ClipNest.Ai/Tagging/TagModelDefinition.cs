@@ -6,7 +6,8 @@ namespace ClipNest.Ai.Tagging;
 public enum TagModelKind
 {
     Camie,
-    RecognizeAnything
+    RecognizeAnything,
+    Siglip
 }
 
 /// <summary>
@@ -92,6 +93,10 @@ public sealed class TagModelDefinition
     /// RAM++ 通用标注模型，覆盖 4,585 个常见物体与场景标签，适合常规照片。
     /// 许可证为 Apache-2.0，ONNX 图内完成 ImageNet 归一化。
     /// </summary>
+    /// <remarks>
+    /// 权重取 fp16 版本。fp16 矩阵乘由 DirectML 直接执行；
+    /// 量化版本的 MatMulNBits 在 DirectML 上回落到 CPU，GPU 无法承担主要计算。
+    /// </remarks>
     public static TagModelDefinition RamPlus { get; } = new()
     {
         Id = "ram-plus-plus",
@@ -105,7 +110,7 @@ public sealed class TagModelDefinition
         },
         Files = new[]
         {
-            new ModelFile("onnx/vision_model_int8.onnx", "vision_model_int8.onnx", 251_487_727),
+            new ModelFile("onnx/vision_model_fp16.onnx", "vision_model_fp16.onnx", 428_548_973),
             new ModelFile("tag_embeddings.npy", "tag_embeddings.npy", 478_894_208),
             new ModelFile("ram_tag_list.txt", "ram_tag_list.txt", 41_904),
             new ModelFile("ram_tag_list_threshold.txt", "ram_tag_list_threshold.txt", 22_016)
@@ -114,9 +119,36 @@ public sealed class TagModelDefinition
         ImageSize = 384
     };
 
+    /// <summary>
+    /// SigLIP2 零样本标注，用标签文本嵌入与图片嵌入的余弦相似度排序标签。
+    /// 许可证为 Apache-2.0；只下载视觉编码器，标签嵌入随程序分发。
+    /// </summary>
+    /// <remarks>
+    /// 文本编码器约 539 MB，只用于一次性生成 4,585 条标签嵌入，不随应用运行。
+    /// 标签文本必须补零到 64 个 token，序列长度不同会改变池化结果。
+    /// </remarks>
+    public static TagModelDefinition Siglip2 { get; } = new()
+    {
+        Id = "siglip2-base-patch16-224",
+        DisplayName = "SigLIP2 零样本",
+        License = "Apache-2.0",
+        Homepage = "https://huggingface.co/google/siglip2-base-patch16-224",
+        BaseUrls = new[]
+        {
+            "https://hf-mirror.com/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/",
+            "https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/"
+        },
+        Files = new[]
+        {
+            new ModelFile("onnx/vision_model.onnx", "vision_model.onnx", 371_807_752)
+        },
+        Kind = TagModelKind.Siglip,
+        ImageSize = 224
+    };
+
     /// <summary>可选标注模型；顺序决定设置页展示顺序，首个为默认。</summary>
     public static IReadOnlyList<TagModelDefinition> All { get; } =
-        new[] { CamieV2, Camie, RamPlus };
+        new[] { CamieV2, Camie, RamPlus, Siglip2 };
 
     public static TagModelDefinition Default => CamieV2;
 

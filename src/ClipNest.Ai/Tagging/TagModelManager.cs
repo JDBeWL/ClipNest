@@ -29,12 +29,22 @@ public sealed class TagModelManager
     /// <summary>所有文件都存在且字节数与模型定义一致。</summary>
     public bool IsReady => ModelDownloader.IsReady(Root, Definition.Files);
 
-    public Task DownloadAsync(
+    public async Task DownloadAsync(
         IProgress<ModelDownloadProgress>? progress = null,
         CancellationToken ct = default)
-        => ModelDownloader.DownloadAsync(
-            Root, Definition.Files, Definition.BaseUrls, Http, progress, ct);
+    {
+        await ModelDownloader.DownloadAsync(
+                Root, Definition.Files, Definition.BaseUrls, Http, progress, ct)
+            .ConfigureAwait(false);
+
+        // 目录中可能残留其他变体的权重，下载完成后一并清理。
+        ModelDownloader.DeleteObsolete(Root, Definition.Files);
+    }
 
     /// <summary>删除本地模型文件；调用前需释放推理会话。</summary>
-    public void Remove() => ModelDownloader.DeleteFiles(Root, Definition.Files);
+    public void Remove()
+    {
+        ModelDownloader.DeleteFiles(Root, Definition.Files);
+        ModelDownloader.DeleteObsolete(Root, Definition.Files);
+    }
 }

@@ -116,6 +116,27 @@ public static class ModelDownloader
         }
     }
 
+    /// <summary>
+    /// 删除模型目录中不属于当前定义的 ONNX 权重。
+    /// 权重不在定义中即为残留，单个文件可达数百 MB，且不再被任何会话引用。
+    /// </summary>
+    public static void DeleteObsolete(string root, IReadOnlyList<ModelFile> files)
+    {
+        if (!Directory.Exists(root)) return;
+
+        var keep = files
+            .Select(file => Path.Combine(root, file.LocalPath))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in Directory.EnumerateFiles(root, "*.onnx", SearchOption.AllDirectories))
+        {
+            if (!keep.Contains(path))
+            {
+                TryDelete(path);
+            }
+        }
+    }
+
     private static async Task DownloadFileAsync(
         HttpClient http,
         string url,

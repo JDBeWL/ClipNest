@@ -302,9 +302,25 @@
                   <StackPanel Spacing="2" VerticalAlignment="Center">
                     <TextBlock Text="识别模型" Classes="rowTitle" />
                     <TextBlock Text="{Binding TagModelStatus}" Classes="rowNote" TextWrapping="Wrap" />
-                    <TextBlock Text="CAMIE 识别角色、作品与特征；RAM++ 只识别通用物体与场景。"
+                    <TextBlock Text="{Binding AccelerationStatus}" Classes="rowNote" TextWrapping="Wrap" />
+                    <ProgressBar Height="4" Maximum="1" Value="{Binding TagProgress}"
+                                 IsVisible="{Binding IsTagging}" Margin="0,4,0,2"
+                                 HorizontalAlignment="Stretch" />
+                    <TextBlock Text="CAMIE 识别角色、作品与特征；RAM++ 与 SigLIP2 只识别通用物体与场景，SigLIP2 更快但标签更宽泛。"
                                Classes="rowNote" TextWrapping="Wrap" />
                   </StackPanel>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,6">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="推理线程数" Classes="rowTitle" />
+                    <TextBlock Text="ONNX Runtime 的算子线程数，识别在后台运行；线程越多占用 CPU 越多，上限为逻辑核心数"
+                               Classes="rowNote" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <NumericUpDown Grid.Column="1" Width="120" Minimum="1" Increment="1"
+                                 Maximum="{Binding MaxInferenceThreads}"
+                                 Value="{Binding InferenceThreads, Mode=TwoWay}"
+                                 VerticalAlignment="Center" />
                 </Grid>
 
                 <ItemsControl ItemsSource="{Binding TagModels}">

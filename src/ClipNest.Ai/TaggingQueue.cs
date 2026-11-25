@@ -117,6 +117,18 @@ public sealed class TaggingQueue : IDisposable
         _repository.GetModelIdForAssetAsync(assetId, DefaultModelId, ct);
 
     /// <summary>
+    /// 释放全部模型的推理会话，使线程数等设置在下一次识别时生效。
+    /// 正在处理的一张会先完成，随后按新设置重建会话。
+    /// </summary>
+    public async Task ReleaseSessionsAsync(CancellationToken ct = default)
+    {
+        foreach (var entry in _catalog.Models)
+        {
+            await entry.Tagger.ReleaseIfIdleAsync(TimeSpan.Zero, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// 清空指定文件夹的识别结果并重新排队；手动修改的角色与作品保留。
     /// </summary>
     public async Task ReidentifyFolderAsync(long folderId, CancellationToken ct = default)
@@ -205,8 +217,9 @@ public sealed class TaggingQueue : IDisposable
             }
 
             processed = true;
-            foreach (var job in jobs)
+            for (var index = 0; index < jobs.Count; index++)
             {
+                var job = jobs[index];
                 if (_paused && !_forceRun)
                 {
                     return processed;
@@ -216,6 +229,12 @@ public sealed class TaggingQueue : IDisposable
 
                 // 游标先于处理前移。即使当前图片失败也不原地重试，否则整批待处理资产会停滞。
                 afterAssetId = job.AssetId;
+
+                // 先启动下一张的解码，与当前图片的推理重叠。
+                if (entry.Tagger is ITagPrefetcher prefetcher && index + 1 < jobs.Count)
+                {
+                    prefetcher.Prefetch(jobs[index + 1].Path);
+                }
 
                 try
                 {

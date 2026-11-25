@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- 发布脚本读取此版本号，同时写入程序集与安装包文件名。 -->
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>

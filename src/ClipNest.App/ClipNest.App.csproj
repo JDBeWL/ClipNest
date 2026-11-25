@@ -31,6 +31,15 @@
     <None Update="Assets\Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!--
+    SigLIP2 的标签表与预计算标签嵌入随程序分发。
+    运行时只用视觉编码器，文本编码器不参与推理。
+  -->
+  <ItemGroup>
+    <None Include="Assets\siglip2\**\*" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- 开源许可证与第三方组件声明随发行包一起分发。 -->
   <ItemGroup>
     <None Include="..\..\LICENSE" Link="LICENSE" CopyToPublishDirectory="PreserveNewest" />

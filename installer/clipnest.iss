@@ -1,6 +1,6 @@
 ; 含运行时与不含运行时的安装包使用同一份脚本，差异由发布脚本传入的 /D 定义控制。
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.0"
+  #define MyAppVersion "0.1.1"
 #endif
 #ifndef MyPublishDir
   #define MyPublishDir "..\publish"

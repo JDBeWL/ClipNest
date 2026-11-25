@@ -76,3 +76,13 @@ public interface ITagger : IDisposable
     /// </summary>
     Task ReleaseIfIdleAsync(TimeSpan idleFor, CancellationToken ct = default);
 }
+
+/// <summary>
+/// 可选能力，供队列在推理当前图片时提前准备下一张的模型输入。
+/// 解码与预处理占用 CPU，与推理重叠后单张耗时缩短。
+/// </summary>
+public interface ITagPrefetcher
+{
+    /// <summary>准备指定图片的模型输入。重复调用同一路径不重复解码。</summary>
+    void Prefetch(string path);
+}

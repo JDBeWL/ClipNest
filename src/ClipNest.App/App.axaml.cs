@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ClipNest.App.Theme;
 using ClipNest.Ai;
+using ClipNest.Ai.Acceleration;
 using ClipNest.Ai.Models;
 using ClipNest.Ai.Characters;
 using ClipNest.Ai.Tagging;
@@ -133,6 +134,9 @@ public partial class App : Application
             var settingsService = new SettingsService(Path.Combine(root, "settings.json"));
             services.AddSingleton(settingsService);
 
+            // 线程数必须在任何推理会话创建之前确定。
+            OrtAccelerator.IntraOpThreads = settingsService.Settings.InferenceThreads;
+
             // 必须在任何窗口创建之前定好变体。自绘控件在构造时就会读取色板。
             _appearanceMode = AppearanceModes.Normalize(settingsService.Settings.Appearance);
             var appearanceVariant = ResolveThemeVariant(_appearanceMode);
@@ -165,6 +169,7 @@ public partial class App : Application
 
             // 标注模型与后台标注队列。权重按需下载，未安装的模型由队列跳过。
             var tagRoot = Path.Combine(root, "models");
+            var siglipAssets = Path.Combine(AppContext.BaseDirectory, "Assets", "siglip2");
             services.AddSingleton(sp =>
             {
                 var images = sp.GetRequiredService<IAiImageSource>();
@@ -177,6 +182,7 @@ public partial class App : Application
                         {
                             TagModelKind.Camie => new CamieTagger(manager, images),
                             TagModelKind.RecognizeAnything => new RamTagger(manager, images),
+                            TagModelKind.Siglip => new SiglipTagger(manager, images, siglipAssets),
                             _ => throw new InvalidOperationException(
                                 $"未知标注模型类型：{definition.Kind}")
                         };

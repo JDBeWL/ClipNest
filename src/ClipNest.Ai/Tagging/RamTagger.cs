@@ -12,7 +12,7 @@ namespace ClipNest.Ai.Tagging;
 /// RAM++ 通用标注器，覆盖 4,585 个常见物体与场景标签。
 /// 输入为 384×384 的 RGB 0..1，标签嵌入作为第二个输入，ONNX 图内完成 ImageNet 归一化。
 /// </summary>
-public sealed class RamTagger : ITagger
+public sealed class RamTagger : ITagger, ITagPrefetcher
 {
     private const string PixelInput = "pixel_values";
     private const string EmbeddingInput = "label_embed";
@@ -23,6 +23,7 @@ public sealed class RamTagger : ITagger
     private readonly IAiImageSource _images;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _initLock = new();
+    private readonly PixelPrefetch _prefetch = new();
 
     private InferenceSession? _session;
     private float[]? _embeddings;
@@ -45,21 +46,23 @@ public sealed class RamTagger : ITagger
 
     public bool IsAvailable => _models.IsReady;
 
+    /// <summary>预取下一张图片的输入。像素数据在解码后即驻留，与当前图片的推理并行。</summary>
+    public void Prefetch(string path) =>
+        _prefetch.Start(path, () => LoadPixelsAsync(path, CancellationToken.None));
+
     public async Task<AiTagResult> TagAsync(string path, CancellationToken ct = default)
     {
+        // 解码与预处理不占用推理会话，可与上一张的推理重叠；命中预取时直接复用结果。
+        var pixels = await (_prefetch.Take(path) ?? LoadPixelsAsync(path, ct))
+            .ConfigureAwait(false);
+
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            var definition = _models.Definition;
-            using var source = await _images.LoadAsync(path, definition.ImageSize, ct)
-                .ConfigureAwait(false)
-                ?? throw new InvalidOperationException($"无法解码图片：{path}");
-
-            // 首次加载标签嵌入与 251MB 模型需要数秒，放到后台线程避免卡住 UI。
+            // 首次加载数百 MB 的标签嵌入与模型需要数秒，放到后台线程避免卡住 UI。
             return await Task.Run(() =>
             {
                 var (session, embeddings, tags, thresholds, rows, columns) = EnsureInitialized();
-                var pixels = ToPixels(source, definition.ImageSize);
                 _lastUsedUtc = DateTime.UtcNow;
                 return Run(session, embeddings, tags, thresholds, rows, columns, pixels);
             }, ct).ConfigureAwait(false);
@@ -75,8 +78,10 @@ public sealed class RamTagger : ITagger
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (_session is null) return;
             if (DateTime.UtcNow - _lastUsedUtc < idleFor) return;
+
+            _prefetch.Clear();
+            if (_session is null) return;
 
             _session.Dispose();
             _session = null;
@@ -98,8 +103,19 @@ public sealed class RamTagger : ITagger
         }
 
         _disposed = true;
+        _prefetch.Clear();
         _session?.Dispose();
         _gate.Dispose();
+    }
+
+    private async Task<float[]> LoadPixelsAsync(string path, CancellationToken ct)
+    {
+        using var source = await _images.LoadAsync(path, _models.Definition.ImageSize, ct)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"无法解码图片：{path}");
+
+        return await Task.Run(() => ToPixels(source, _models.Definition.ImageSize), ct)
+            .ConfigureAwait(false);
     }
 
     private (InferenceSession Session, float[] Embeddings, string[] Tags, float[] Thresholds,
