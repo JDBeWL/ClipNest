@@ -237,7 +237,7 @@ public sealed class SiglipTagger : ITagger, ITagPrefetcher
     }
 
     /// <summary>
-    /// 缩放到 224×224 后转成 RGB 的 CHW 平面，归一化为 (x/255-0.5)/0.5。
+    /// 缩放到 224×224 后转成 RGB 的 CHW 平面，归一化为 <c>(x/255-0.5)/0.5</c>。
     /// </summary>
     private static float[] ToPixels(SKBitmap source, int size)
     {

@@ -243,4 +243,67 @@ public sealed class TagSelectionTests
     {
         Assert.Equal("long hair", new AiTag("long_hair", AiTagCategory.General, 0.5f).DisplayName);
     }
+
+    [Fact]
+    public void SelectFromProbabilities_UsesDirectProbabilitiesWithoutDoubleSigmoid()
+    {
+        var result = TagSelection.SelectFromProbabilities(
+            new[] { 0.80f, 0.10f, 0.42f, 0.25f },
+            new[] { "long_hair", "noise_tag", "hatsune_miku", "weak_character" },
+            new[]
+            {
+                AiTagCategory.General,
+                AiTagCategory.General,
+                AiTagCategory.Character,
+                AiTagCategory.Character
+            },
+            generalThreshold: 0.35f,
+            characterFloor: 0.35f);
+
+        Assert.Equal("hatsune_miku", result.Character?.Name);
+        Assert.InRange(result.Character!.Score, 0.419f, 0.421f);
+        var features = result.FeatureTags.ToList();
+        Assert.Single(features);
+        Assert.Equal("long_hair", features[0].Name);
+        Assert.InRange(features[0].Score, 0.799f, 0.801f);
+    }
+
+    [Fact]
+    public void SelectScoresFromProbabilities_ClampsValuesAndPreservesOrder()
+    {
+        var scores = TagSelection.SelectScoresFromProbabilities(
+            new[] { 1.05f, 0.05f, 0.20f },
+            new[] { "1girl", "low", "solo" },
+            new[] { AiTagCategory.General, AiTagCategory.General, AiTagCategory.General });
+
+        Assert.Equal(new[] { 0, 2 }, scores.Select(entry => entry.Index).ToArray());
+        Assert.Equal(1f, scores[0].Score);
+        Assert.InRange(scores[1].Score, 0.199f, 0.201f);
+    }
+
+    [Fact]
+    public void Select_RespectsCustomThresholdsForLogits()
+    {
+        var logits = new[] { Logit(0.60f), Logit(0.45f), Logit(0.42f), Logit(0.30f) };
+        var names = new[] { "1girl", "weak_general", "elaina", "weak_character" };
+        var categories = new[]
+        {
+            AiTagCategory.General,
+            AiTagCategory.General,
+            AiTagCategory.Character,
+            AiTagCategory.Character
+        };
+
+        var result = TagSelection.Select(
+            logits, names, categories,
+            generalThreshold: ClTagger.GeneralThreshold,
+            characterFloor: ClTagger.CharacterFloor,
+            seriesThreshold: ClTagger.SeriesThreshold,
+            seriesHintFloor: ClTagger.SeriesHintFloor);
+
+        Assert.Equal("elaina", result.Character?.Name);
+        Assert.Single(result.Tags, tag => tag.IsCharacter);
+        Assert.Single(result.FeatureTags);
+        Assert.Equal("1girl", result.FeatureTags.First().Name);
+    }
 }

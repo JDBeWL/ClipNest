@@ -1,6 +1,12 @@
 ; 含运行时与不含运行时的安装包使用同一份脚本，差异由发布脚本传入的 /D 定义控制。
+; 未通过 /DMyAppVersion 传入版本号时，直接从根目录 VERSION 读取。
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.1"
+  #define VersionFile FileOpen("..\VERSION")
+  #if VersionFile == 0
+    #error "无法打开 ..\VERSION。"
+  #endif
+  #define MyAppVersion Trim(FileRead(VersionFile))
+  #expr FileClose(VersionFile)
 #endif
 #ifndef MyPublishDir
   #define MyPublishDir "..\publish"

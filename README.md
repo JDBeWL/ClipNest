@@ -92,7 +92,7 @@ powershell -ExecutionPolicy Bypass -File scripts/release.ps1
 可选参数：
 
 ```powershell
-# 指定版本号，默认读取 Directory.Build.props
+# 指定版本号，默认读取根目录 VERSION 文件
 powershell -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 0.1.1
 
 # 只生成便携版

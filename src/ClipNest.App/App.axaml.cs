@@ -31,7 +31,11 @@ namespace ClipNest.App;
 
 public partial class App : Application
 {
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        AppLocalization.AttachToApplication(this);
+    }
 
     private string _appearanceMode = AppearanceModes.System;
     private bool _watchingPlatformTheme;
@@ -44,6 +48,26 @@ public partial class App : Application
         RequestedThemeVariant = variant;
         ThemeColors.Apply(variant);
         RefreshWindowChrome();
+    }
+
+    /// <summary>切换界面字体与字号并刷新已打开窗口的排版与自绘缓存。</summary>
+    public void ApplyTypography(string? fontFamily, string? fontScale)
+    {
+        AppFonts.Apply(fontFamily, fontScale);
+        RefreshWindowTypography();
+    }
+
+    /// <summary>切换界面语言并即时刷新全部已打开窗口、视图模型与自绘缓存。</summary>
+    public void ApplyLanguage(string? language, MainWindowViewModel? initiator = null)
+    {
+        AppLocalization.Apply(language);
+        // 跟随系统字体时随语言调整 CJK 回退顺序，避免日文界面落到中文字形。
+        if (AppFonts.CurrentSelection == FontPresets.System)
+        {
+            AppFonts.Apply(AppFonts.CurrentSelection, AppFonts.CurrentScale);
+        }
+
+        RefreshWindowLocalization(initiator);
     }
 
     /// <summary>
@@ -85,6 +109,41 @@ public partial class App : Application
         }
     }
 
+    private void RefreshWindowTypography()
+    {
+        if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop) return;
+
+        foreach (var window in desktop.Windows)
+        {
+            InvalidateTypographyTree(window);
+        }
+    }
+
+    private void RefreshWindowLocalization(MainWindowViewModel? initiator)
+    {
+        if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop) return;
+
+        foreach (var window in desktop.Windows)
+        {
+            if (window is MainWindow mainWindow) mainWindow.RefreshLocalizedChrome();
+            if (window is ViewerWindow viewerWindow) viewerWindow.RefreshLocalizedUi();
+            if (window.DataContext is MainWindowViewModel vm && !ReferenceEquals(vm, initiator))
+                vm.RefreshLocalizedTexts();
+            InvalidateTypographyTree(window);
+        }
+    }
+
+    /// <summary>字体与字号切换会改变文本测量尺寸，需要同时触发布局与自绘控件重绘。</summary>
+    private static void InvalidateTypographyTree(Visual visual)
+    {
+        if (visual is Avalonia.Layout.Layoutable layoutable) layoutable.InvalidateMeasure();
+        visual.InvalidateVisual();
+        foreach (var child in visual.GetVisualChildren())
+        {
+            if (child is Visual nested) InvalidateTypographyTree(nested);
+        }
+    }
+
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -103,10 +162,7 @@ public partial class App : Application
             {
                 Log.Fatal(ex, "Data directory initialization failed");
                 desktop.MainWindow = new ErrorWindow(
-                    "ClipNest 无法创建或写入数据库。常见原因是安全软件（如火绒、Defender 受控文件夹访问）"
-                    + "阻止了写入，或目录权限不足。\n\n"
-                    + "请将 ClipNest 加入安全软件信任区，或设置环境变量 CLIPNEST_HOME 指向可写目录，"
-                    + "然后重新启动。",
+                    AppLocalization.Get("Error.DbInitFailed"),
                     root);
                 return;
             }
@@ -137,11 +193,13 @@ public partial class App : Application
             // 线程数必须在任何推理会话创建之前确定。
             OrtAccelerator.IntraOpThreads = settingsService.Settings.InferenceThreads;
 
-            // 必须在任何窗口创建之前定好变体。自绘控件在构造时就会读取色板。
+            // 必须在任何窗口创建之前定好语言、主题与字体。自绘控件在构造时就会读取色板、文案与字体。
+            AppLocalization.Apply(settingsService.Settings.Language);
             _appearanceMode = AppearanceModes.Normalize(settingsService.Settings.Appearance);
             var appearanceVariant = ResolveThemeVariant(_appearanceMode);
             RequestedThemeVariant = appearanceVariant;
             ThemeColors.Apply(appearanceVariant);
+            AppFonts.Apply(settingsService.Settings.FontFamily, settingsService.Settings.FontScale);
 
             // 跟随系统时订阅平台主题变化；只在该模式下重新解析，避免覆盖手动选择。
             if (!_watchingPlatformTheme && PlatformSettings is { } platformSettings)
@@ -181,6 +239,8 @@ public partial class App : Application
                         ITagger tagger = definition.Kind switch
                         {
                             TagModelKind.Camie => new CamieTagger(manager, images),
+                            TagModelKind.WdTagger => new WdTagger(manager, images),
+                            TagModelKind.ClTagger => new ClTagger(manager, images),
                             TagModelKind.RecognizeAnything => new RamTagger(manager, images),
                             TagModelKind.Siglip => new SiglipTagger(manager, images, siglipAssets),
                             _ => throw new InvalidOperationException(

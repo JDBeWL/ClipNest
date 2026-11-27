@@ -6,14 +6,31 @@
   <Application.Resources>
     <ResourceDictionary>
       <!--
-        界面字体随程序分发，取 Noto Sans SC 的常规与半粗两个静态字重，已裁到 GB2312 与常用符号。
-        系统字体只作逐字回退，生僻字与日文假名仍由雅黑补齐，不会出现方框。
+        使用单一系统字体族名而非复合字体链，避免 Avalonia 跳过本地化中文字体名。
+        缺字兜底统一由 Program.cs 的 FontFallbacks 提供，运行时再按语言与设置覆盖。
       -->
-      <FontFamily x:Key="Font.UI">avares://ClipNest.App/Assets/Fonts#Noto Sans SC, Segoe UI Variable Text, PingFang SC, Microsoft YaHei UI</FontFamily>
-      <FontFamily x:Key="Font.Display">avares://ClipNest.App/Assets/Fonts#Noto Sans SC, Segoe UI Variable Display, PingFang SC, Microsoft YaHei UI</FontFamily>
+      <FontFamily x:Key="Font.UI">Microsoft YaHei UI</FontFamily>
+      <FontFamily x:Key="Font.Display">Microsoft YaHei UI</FontFamily>
+
+      <!-- 字号与行高按角色分层，随全局字号档位动态替换。 -->
+      <x:Double x:Key="FontSize.PageTitle">22</x:Double>
+      <x:Double x:Key="FontSize.Display">19</x:Double>
+      <x:Double x:Key="FontSize.InspectorTitle">16</x:Double>
+      <x:Double x:Key="FontSize.Heading">15</x:Double>
+      <x:Double x:Key="FontSize.Title">14</x:Double>
+      <x:Double x:Key="FontSize.Body">13</x:Double>
+      <x:Double x:Key="FontSize.Nav">13</x:Double>
+      <x:Double x:Key="FontSize.Tag">12.5</x:Double>
+      <x:Double x:Key="FontSize.Control">12.5</x:Double>
+      <x:Double x:Key="FontSize.Caption">12</x:Double>
+      <x:Double x:Key="FontSize.Micro">11</x:Double>
+      <x:Double x:Key="LineHeight.Body">20</x:Double>
+      <x:Double x:Key="LineHeight.Caption">18</x:Double>
 
       <!-- 子菜单与父菜单边缘对齐；Fluent 默认 -4 会压住父菜单的右侧内边距。 -->
       <x:Double x:Key="MenuFlyoutSubItemPopupHorizontalOffset">4</x:Double>
+      <!-- 取消 Fluent 菜单滚动区自带的上下外边距，避免与 MenuFlyoutPresenter 内边距叠加。 -->
+      <Thickness x:Key="MenuFlyoutScrollerMargin">0</Thickness>
 
 
       <!-- 两套主题各自持有完整画刷；切换变体时 Avalonia 会整体替换。 -->
@@ -26,6 +43,7 @@
         <SolidColorBrush x:Key="Brush.Surface.Shell" Color="{x:Static theme:AppPalette.SurfaceShell}" />
         <SolidColorBrush x:Key="Brush.Surface.Glass" Color="{x:Static theme:AppPalette.SurfaceGlass}" />
         <SolidColorBrush x:Key="Brush.Chrome" Color="{x:Static theme:AppPalette.SurfaceNavigation}" />
+        <SolidColorBrush x:Key="Brush.Surface.Inspector" Color="{x:Static theme:AppPalette.SurfaceInspector}" />
         <SolidColorBrush x:Key="Brush.Surface.Elevated" Color="{x:Static theme:AppPalette.SurfaceElevated}" />
         <SolidColorBrush x:Key="Brush.Surface.Card" Color="{x:Static theme:AppPalette.SurfaceCard}" />
         <SolidColorBrush x:Key="Brush.Surface.Hover" Color="{x:Static theme:AppPalette.SurfaceHover}" />
@@ -58,6 +76,17 @@
         <SolidColorBrush x:Key="Brush.Accent.Subtle" Color="{x:Static theme:AppPalette.AccentSubtle}" />
         <SolidColorBrush x:Key="Brush.Accent.Glow" Color="{x:Static theme:AppPalette.AccentGlow}" />
 
+        <!-- 开关控件强调色随主题字典切换，保持与主强调色一致。 -->
+        <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{x:Static theme:AppPalette.Accent}" />
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{x:Static theme:AppPalette.AccentHover}" />
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="{x:Static theme:AppPalette.AccentPressed}" />
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="Transparent" />
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="Transparent" />
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
+
         <!-- 语义色。 -->
         <SolidColorBrush x:Key="Brush.State.Success" Color="{x:Static theme:AppPalette.Success}" />
         <SolidColorBrush x:Key="Brush.State.SuccessSubtle" Color="{x:Static theme:AppPalette.SuccessSubtle}" />
@@ -78,10 +107,11 @@
         </LinearGradientBrush>
 
           <!-- 渐隐与亚克力材质，XAML 里无法直接引用画刷的颜色由此提供。 -->
-          <Color x:Key="Color.Fade.Clear">#00141418</Color>
-          <Color x:Key="Color.Fade.Opaque">#A6141418</Color>
-          <Color x:Key="Color.Veil.Top">#CC141418</Color>
-          <Color x:Key="Color.Veil.Mid">#8C141418</Color>
+          <Color x:Key="Color.Fade.Clear">#00111216</Color>
+          <Color x:Key="Color.Fade.Opaque">#B8111216</Color>
+          <Color x:Key="Color.Veil.Top">#F2111216</Color>
+          <Color x:Key="Color.Veil.Mid">#D9111216</Color>
+          <Color x:Key="Color.Veil.Soft">#59111216</Color>
           <Color x:Key="Color.Acrylic.Tint">#1E1E24</Color>
           <Color x:Key="Color.Acrylic.Fallback">#CC1C1C22</Color>
 
@@ -99,12 +129,12 @@
                                        TintColor="#1E1E24" TintOpacity="0.65"
                                        MaterialOpacity="0.45" FallbackColor="#CC1C1C22" />
 
-          <SolidColorBrush x:Key="Brush.Pill.Fill" Color="#CC141418" />
+          <SolidColorBrush x:Key="Brush.Pill.Fill" Color="#D415161B" />
           <LinearGradientBrush x:Key="Brush.Pill.Edge" StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Offset="0.0" Color="#4DFFFFFF" />
-            <GradientStop Offset="0.35" Color="#14FFFFFF" />
-            <GradientStop Offset="0.7" Color="#08FFFFFF" />
-            <GradientStop Offset="1.0" Color="#24FFFFFF" />
+            <GradientStop Offset="0.0" Color="#47FFFFFF" />
+            <GradientStop Offset="0.35" Color="#17FFFFFF" />
+            <GradientStop Offset="0.7" Color="#0CFFFFFF" />
+            <GradientStop Offset="1.0" Color="#26FFFFFF" />
           </LinearGradientBrush>
           <LinearGradientBrush x:Key="Brush.Glass.Edge" StartPoint="0%,0%" EndPoint="100%,100%">
             <GradientStop Offset="0.0" Color="#55FFFFFF" />
@@ -138,6 +168,7 @@
         <SolidColorBrush x:Key="Brush.Surface.Shell" Color="{x:Static theme:AppPaletteLight.SurfaceShell}" />
         <SolidColorBrush x:Key="Brush.Surface.Glass" Color="{x:Static theme:AppPaletteLight.SurfaceGlass}" />
         <SolidColorBrush x:Key="Brush.Chrome" Color="{x:Static theme:AppPaletteLight.SurfaceNavigation}" />
+        <SolidColorBrush x:Key="Brush.Surface.Inspector" Color="{x:Static theme:AppPaletteLight.SurfaceInspector}" />
         <SolidColorBrush x:Key="Brush.Surface.Elevated" Color="{x:Static theme:AppPaletteLight.SurfaceElevated}" />
         <SolidColorBrush x:Key="Brush.Surface.Card" Color="{x:Static theme:AppPaletteLight.SurfaceCard}" />
         <SolidColorBrush x:Key="Brush.Surface.Hover" Color="{x:Static theme:AppPaletteLight.SurfaceHover}" />
@@ -170,6 +201,17 @@
         <SolidColorBrush x:Key="Brush.Accent.Subtle" Color="{x:Static theme:AppPaletteLight.AccentSubtle}" />
         <SolidColorBrush x:Key="Brush.Accent.Glow" Color="{x:Static theme:AppPaletteLight.AccentGlow}" />
 
+        <!-- 开关控件强调色随主题字典切换，保持与主强调色一致。 -->
+        <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{x:Static theme:AppPaletteLight.Accent}" />
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{x:Static theme:AppPaletteLight.AccentHover}" />
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="{x:Static theme:AppPaletteLight.AccentPressed}" />
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="Transparent" />
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="Transparent" />
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
+
         <!-- 语义色。 -->
         <SolidColorBrush x:Key="Brush.State.Success" Color="{x:Static theme:AppPaletteLight.Success}" />
         <SolidColorBrush x:Key="Brush.State.SuccessSubtle" Color="{x:Static theme:AppPaletteLight.SuccessSubtle}" />
@@ -190,10 +232,11 @@
         </LinearGradientBrush>
 
           <!-- 渐隐与亚克力材质，XAML 里无法直接引用画刷的颜色由此提供。 -->
-          <Color x:Key="Color.Fade.Clear">#00FFFFFF</Color>
-          <Color x:Key="Color.Fade.Opaque">#A6FFFFFF</Color>
-          <Color x:Key="Color.Veil.Top">#CCFFFFFF</Color>
-          <Color x:Key="Color.Veil.Mid">#8CFFFFFF</Color>
+          <Color x:Key="Color.Fade.Clear">#00F6F7FA</Color>
+          <Color x:Key="Color.Fade.Opaque">#B8F6F7FA</Color>
+          <Color x:Key="Color.Veil.Top">#F5F6F7FA</Color>
+          <Color x:Key="Color.Veil.Mid">#D9F6F7FA</Color>
+          <Color x:Key="Color.Veil.Soft">#59F6F7FA</Color>
           <Color x:Key="Color.Acrylic.Tint">#F7F7FA</Color>
           <Color x:Key="Color.Acrylic.Fallback">#CCEFEFF2</Color>
 
@@ -211,7 +254,7 @@
                                        TintColor="#F7F7FA" TintOpacity="0.92"
                                        MaterialOpacity="0.86" FallbackColor="#CCEFEFF2" />
 
-          <SolidColorBrush x:Key="Brush.Pill.Fill" Color="#CCF7F7FA" />
+          <SolidColorBrush x:Key="Brush.Pill.Fill" Color="#E0F7F7FA" />
           <LinearGradientBrush x:Key="Brush.Pill.Edge" StartPoint="0%,0%" EndPoint="100%,100%">
             <GradientStop Offset="0.0" Color="#26FFFFFF" />
             <GradientStop Offset="0.35" Color="#0A000000" />
@@ -303,6 +346,7 @@
       <StreamGeometry x:Key="Icon.Sparkle">M12,3.4 L13.8,9.2 L19.6,11 L13.8,12.8 L12,18.6 L10.2,12.8 L4.4,11 L10.2,9.2 Z</StreamGeometry>
       <StreamGeometry x:Key="Icon.Sort">M4,6.5 H20 M4,12 H14.5 M4,17.5 H9.5</StreamGeometry>
       <StreamGeometry x:Key="Icon.Panel">M3.5,7.5 A4,4 0 0 1 7.5,3.5 H16.5 A4,4 0 0 1 20.5,7.5 V16.5 A4,4 0 0 1 16.5,20.5 H7.5 A4,4 0 0 1 3.5,16.5 Z M15,3.5 V20.5</StreamGeometry>
+      <StreamGeometry x:Key="Icon.PanelClose">M3.5,7.5 A4,4 0 0 1 7.5,3.5 H16.5 A4,4 0 0 1 20.5,7.5 V16.5 A4,4 0 0 1 16.5,20.5 H7.5 A4,4 0 0 1 3.5,16.5 Z M15.5,3.5 V20.5 M8.8,9.2 L11.8,12 L8.8,14.8</StreamGeometry>
       <StreamGeometry x:Key="Icon.Grid">M4,4 H9.6 V9.6 H4 Z M14.4,4 H20 V9.6 H14.4 Z M4,14.4 H9.6 V20 H4 Z M14.4,14.4 H20 V20 H14.4 Z</StreamGeometry>
       <StreamGeometry x:Key="Icon.Edit">M4.8,19.2 L5.4,15.2 L15.7,4.9 A2.1,2.1 0 0 1 18.7,7.9 L8.4,18.2 Z M13.8,6.8 L17.2,10.2</StreamGeometry>
       <StreamGeometry x:Key="Icon.Check">M5,12.7 L9.5,17.2 L19,6.9</StreamGeometry>
@@ -331,22 +375,21 @@
     <StreamGeometry x:Key="Icon.Hash">M9.5,4.5 L7.8,19.5 M16.2,4.5 L14.5,19.5 M4.5,9.2 H19.8 M4.2,14.8 H19.5</StreamGeometry>
 
       <!--
-        滚动条统一成悬浮细条。Fluent 模板展开时会露出上下箭头与整条轨道底色，在浅色侧栏里对比过强，
-        因此只保留圆角滑块，与画廊自绘的滚动条一致。
-        Thumb 必须自带 Width/MinHeight，否则 Track 算出的可用长度为 0，滑块整条都不会绘制。
+        滚动条统一成 4px 悬浮细条，与画廊自绘滚动条的视觉粗细一致。
+        Thumb 必须自带固定轨道宽度与 MinHeight，否则 Track 算出的可用长度为 0，滑块不会绘制。
       -->
       <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="MinWidth" Value="12" />
-        <Setter Property="MinHeight" Value="12" />
+        <Setter Property="MinWidth" Value="8" />
+        <Setter Property="MinHeight" Value="8" />
 
         <Style Selector="^:vertical">
-          <Setter Property="Width" Value="12" />
-          <Setter Property="MinWidth" Value="12" />
-          <Setter Property="MaxWidth" Value="12" />
+          <Setter Property="Width" Value="8" />
+          <Setter Property="MinWidth" Value="8" />
+          <Setter Property="MaxWidth" Value="8" />
           <Setter Property="Template">
             <ControlTemplate>
-              <Border Background="Transparent">
+              <Border Background="Transparent" Padding="0,4">
                 <Track Name="PART_Track"
                        Minimum="{TemplateBinding Minimum}"
                        Maximum="{TemplateBinding Maximum}"
@@ -355,11 +398,13 @@
                        Orientation="Vertical"
                        IsDirectionReversed="True">
                   <Track.Thumb>
-                    <Thumb Width="12" MinHeight="24">
+                    <Thumb Name="PART_Thumb" Width="8" MinHeight="28" Padding="2,0"
+                           Background="{DynamicResource Brush.Scroll.Thumb}">
                       <Thumb.Template>
                         <ControlTemplate>
-                          <Border Background="{DynamicResource Brush.Scroll.Thumb}"
-                                  CornerRadius="999" Margin="2" />
+                          <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <Border Background="{TemplateBinding Background}" CornerRadius="999" />
+                          </Border>
                         </ControlTemplate>
                       </Thumb.Template>
                     </Thumb>
@@ -370,13 +415,18 @@
           </Setter>
         </Style>
 
+        <Style Selector="^:vertical:pointerover /template/ Thumb#PART_Thumb">
+          <Setter Property="Background" Value="{DynamicResource Brush.Scroll.ThumbHover}" />
+          <Setter Property="Padding" Value="1.5,0" />
+        </Style>
+
         <Style Selector="^:horizontal">
-          <Setter Property="Height" Value="12" />
-          <Setter Property="MinHeight" Value="12" />
-          <Setter Property="MaxHeight" Value="12" />
+          <Setter Property="Height" Value="8" />
+          <Setter Property="MinHeight" Value="8" />
+          <Setter Property="MaxHeight" Value="8" />
           <Setter Property="Template">
             <ControlTemplate>
-              <Border Background="Transparent">
+              <Border Background="Transparent" Padding="4,0">
                 <Track Name="PART_Track"
                        Minimum="{TemplateBinding Minimum}"
                        Maximum="{TemplateBinding Maximum}"
@@ -384,11 +434,13 @@
                        ViewportSize="{TemplateBinding ViewportSize}"
                        Orientation="Horizontal">
                   <Track.Thumb>
-                    <Thumb Height="12" MinWidth="24">
+                    <Thumb Name="PART_Thumb" Height="8" MinWidth="28" Padding="0,2"
+                           Background="{DynamicResource Brush.Scroll.Thumb}">
                       <Thumb.Template>
                         <ControlTemplate>
-                          <Border Background="{DynamicResource Brush.Scroll.Thumb}"
-                                  CornerRadius="999" Margin="2" />
+                          <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <Border Background="{TemplateBinding Background}" CornerRadius="999" />
+                          </Border>
                         </ControlTemplate>
                       </Thumb.Template>
                     </Thumb>
@@ -397,6 +449,11 @@
               </Border>
             </ControlTemplate>
           </Setter>
+        </Style>
+
+        <Style Selector="^:horizontal:pointerover /template/ Thumb#PART_Thumb">
+          <Setter Property="Background" Value="{DynamicResource Brush.Scroll.ThumbHover}" />
+          <Setter Property="Padding" Value="0,1.5" />
         </Style>
       </ControlTheme>
       </ResourceDictionary>
@@ -430,66 +487,70 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="8" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
       <Setter Property="Padding" Value="9,5" />
       </Style>
 
-      <!-- 字号层级共 6 级，按角色命名。 -->
+      <!-- 字号层级按角色命名，全部绑定动态资源以支持运行时切换字体与缩放。 -->
       <Style Selector="TextBlock">
-      <Setter Property="FontFamily" Value="{StaticResource Font.UI}" />
+      <Setter Property="FontFamily" Value="{DynamicResource Font.UI}" />
       </Style>
       <!-- 菜单与浮层挂在各自的弹出根上，不在窗口的可视树里，字体要单独下发。 -->
       <Style Selector="TemplatedControl">
-      <Setter Property="FontFamily" Value="{StaticResource Font.UI}" />
+      <Setter Property="FontFamily" Value="{DynamicResource Font.UI}" />
       </Style>
       <Style Selector="TextBlock.display">
-      <Setter Property="FontFamily" Value="{StaticResource Font.Display}" />
-      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontFamily" Value="{DynamicResource Font.Display}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Display}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
       </Style>
       <Style Selector="TextBlock.heading">
-      <Setter Property="FontFamily" Value="{StaticResource Font.Display}" />
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontFamily" Value="{DynamicResource Font.Display}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Heading}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
       </Style>
       <Style Selector="TextBlock.title">
-      <Setter Property="FontFamily" Value="{StaticResource Font.Display}" />
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontFamily" Value="{DynamicResource Font.Display}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Title}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
       </Style>
       <Style Selector="TextBlock.body">
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="LineHeight" Value="{DynamicResource LineHeight.Body}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
       </Style>
       <Style Selector="TextBlock.meta">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+      <Setter Property="LineHeight" Value="{DynamicResource LineHeight.Caption}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
       </Style>
       <Style Selector="TextBlock.callout">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+      <Setter Property="LineHeight" Value="{DynamicResource LineHeight.Caption}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
       </Style>
       <Style Selector="TextBlock.caption">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+      <Setter Property="LineHeight" Value="{DynamicResource LineHeight.Caption}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Tertiary}" />
       </Style>
       <Style Selector="TextBlock.micro">
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Micro}" />
       <Setter Property="FontWeight" Value="Medium" />
-      <Setter Property="LetterSpacing" Value="0.8" />
+      <Setter Property="LetterSpacing" Value="0.6" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Tertiary}" />
       </Style>
       <Style Selector="TextBlock.number">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Tertiary}" />
       </Style>
       <Style Selector="TextBlock.section">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="LetterSpacing" Value="0.6" />
+      <Setter Property="LetterSpacing" Value="0.4" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Tertiary}" />
       </Style>
 
@@ -512,7 +573,7 @@
       <Style Selector="Button.icon:pressed">
       <Setter Property="Background" Value="{DynamicResource Brush.Surface.Active}" />
       </Style>
-      <!-- 文件夹行的移除按钮只在指针落到按钮本身时转为实心红，平时与其它图标同色。 -->
+      <!-- 文件夹行的移除按钮只在指针落到按钮本身时转为实心红，平时与其他图标同色。 -->
       <Style Selector="Button.icon.danger:pointerover">
       <Setter Property="Background" Value="{DynamicResource Brush.State.Danger}" />
       <Setter Property="Foreground" Value="White" />
@@ -541,7 +602,7 @@
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="999" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       </Style>
@@ -622,7 +683,7 @@
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="999" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       </Style>
@@ -641,9 +702,9 @@
       <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.On}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="10" />
-      <Setter Property="Height" Value="30" />
+      <Setter Property="MinHeight" Value="32" />
       <Setter Property="Padding" Value="14,0" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -662,9 +723,9 @@
       <Setter Property="Foreground" Value="White" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="10" />
-      <Setter Property="Height" Value="30" />
+      <Setter Property="MinHeight" Value="32" />
       <Setter Property="Padding" Value="14,0" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -694,15 +755,34 @@
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="10" />
-      <Setter Property="Height" Value="30" />
+      <Setter Property="MinHeight" Value="32" />
       <Setter Property="Padding" Value="12,0" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       </Style>
       <Style Selector="Button.ghost:pointerover">
       <Setter Property="Background" Value="{DynamicResource Brush.Surface.Active}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
+      </Style>
+      <!-- 次要破坏性操作平时保持克制，悬停时才转为柔和警示色。 -->
+      <Style Selector="Button.ghost.danger">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+      </Style>
+      <Style Selector="Button.ghost.danger:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.State.DangerSubtle}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.State.Danger}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.State.Danger}" />
+      </Style>
+      <Style Selector="Button.ghost.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.State.DangerSubtle}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.State.Danger}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.State.Danger}" />
+      </Style>
+      <Style Selector="Button.ghost.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.State.DangerSubtle}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.State.Danger}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.State.Danger}" />
       </Style>
 
       <Style Selector="Button.chip">
@@ -712,7 +792,7 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="999" />
       <Setter Property="Padding" Value="8,3" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
       </Style>
       <Style Selector="Button.chip:pointerover">
       <Setter Property="Background" Value="{DynamicResource Brush.Accent.Subtle}" />
@@ -727,9 +807,8 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="10" />
       <Setter Property="Padding" Value="10,0" />
-      <Setter Property="MinHeight" Value="30" />
-      <Setter Property="Height" Value="30" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
       <Setter Property="CaretBrush" Value="{DynamicResource Brush.Accent.Base}" />
       <Setter Property="SelectionBrush" Value="{DynamicResource Brush.Accent.Glow}" />
@@ -747,18 +826,18 @@
       <Setter Property="BorderThickness" Value="0" />
       </Style>
 
-      <!-- 搜索框无边框，由外层胶囊承担视觉容器。 -->
+      <!-- 搜索框无边框，由外层胶囊承担视觉容器；不锁死行高，避免高行距字体被裁切。 -->
       <Style Selector="TextBox.search">
       <Setter Property="FocusAdorner" Value="{x:Null}" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="0" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
       <Setter Property="CaretBrush" Value="{DynamicResource Brush.Accent.Base}" />
       <Setter Property="SelectionBrush" Value="{DynamicResource Brush.Accent.Glow}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="MinHeight" Value="18" />
+      <Setter Property="MinHeight" Value="22" />
       </Style>
       <Style Selector="TextBox.search /template/ Border#PART_BorderElement">
       <Setter Property="Background" Value="Transparent" />
@@ -776,13 +855,75 @@
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="999" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       </Style>
       <Style Selector="ToggleButton.segment:checked">
       <Setter Property="Background" Value="{DynamicResource Brush.Control.Thumb}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+      </Style>
+
+      <!-- 下拉框与弹出项统一到圆角玻璃质感，避免露出 Fluent 默认直角白框。 -->
+      <Style Selector="ComboBox">
+      <Setter Property="FocusAdorner" Value="{x:Null}" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="12,5,10,5" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      </Style>
+      <Style Selector="ComboBox:pointerover /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Active}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
+      </Style>
+      <Style Selector="ComboBox:pressed /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Active}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent.Base}" />
+      </Style>
+      <Style Selector="ComboBox:dropdownopen /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Active}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent.Base}" />
+      </Style>
+      <Style Selector="ComboBox /template/ Border#PopupBorder">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Popup}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="BoxShadow" Value="{DynamicResource Shadow.Popup}" />
+      </Style>
+      <Style Selector="ComboBoxItem">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="Margin" Value="0,1" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+      </Style>
+      <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+      </Style>
+      <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.Accent.Subtle}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+      </Style>
+      <Style Selector="ComboBoxItem:selected:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.Accent.Subtle}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+      </Style>
+
+      <Style Selector="Border.kbd">
+      <Setter Property="Background" Value="{DynamicResource Brush.Control.Well}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
       </Style>
 
       <Style Selector="ListBox.plain">
@@ -801,14 +942,16 @@
       <Setter Property="Background" Value="{DynamicResource Brush.Surface.Popup}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="CornerRadius" Value="12" />
       <Setter Property="Padding" Value="4" />
+      <Setter Property="MinWidth" Value="136" />
       </Style>
       <Style Selector="MenuItem">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Control}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-      <Setter Property="Padding" Value="9,6" />
-      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="8,5" />
+      <Setter Property="CornerRadius" Value="7" />
       </Style>
       <Style Selector="MenuItem:pointerover">
       <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />

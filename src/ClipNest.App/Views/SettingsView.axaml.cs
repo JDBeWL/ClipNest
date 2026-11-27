@@ -13,7 +13,7 @@ public partial class SettingsView : UserControl
 {
     public SettingsView() => InitializeComponent();
 
-    /// <summary>打开设置页时把焦点移进页内，避免 Esc 被被遮住的搜索框吞掉。</summary>
+    /// <summary>打开设置页时把焦点移入页内，避免 Esc 被底层隐藏的搜索框拦截。</summary>
     public void FocusInitial() => BackButton.Focus();
 
     /// <summary>页头拖动沿用主窗口规则。按钮上的点击不参与，双击切换最大化。</summary>
@@ -45,7 +45,8 @@ public partial class SettingsView : UserControl
         }
         catch
         {
-            if (DataContext is MainWindowViewModel vm) vm.StatusText = "无法打开数据目录";
+            if (DataContext is MainWindowViewModel vm)
+                vm.StatusText = AppLocalization.Get("Status.CannotOpenDataDir");
         }
     }
 
@@ -56,10 +57,10 @@ public partial class SettingsView : UserControl
 
         var confirmed = await ConfirmWindow.AskAsync(
             owner,
-            "重新识别标签",
-            "将清除现有 AI 标签，并按各文件夹的模型重新识别全部图片。",
-            "角色与作品会按模型结论重建，手动添加的其他标签保留。识别在后台进行，期间可以继续浏览图片。",
-            "开始识别");
+            AppLocalization.Get("Confirm.ReanalyzeAll.Title"),
+            AppLocalization.Get("Confirm.ReanalyzeAll.Message"),
+            AppLocalization.Get("Confirm.ReanalyzeBatch.Detail"),
+            AppLocalization.Get("Confirm.StartTagging"));
         if (!confirmed) return;
 
         try
@@ -68,7 +69,7 @@ public partial class SettingsView : UserControl
         }
         catch (Exception ex)
         {
-            vm.StatusText = $"重新识别失败：{ex.Message}";
+            vm.StatusText = AppLocalization.Format("Ai.Tagging.ReidentifyFailed", ex.Message);
         }
     }
 
@@ -101,10 +102,10 @@ public partial class SettingsView : UserControl
 
         var confirmed = await ConfirmWindow.AskAsync(
             owner,
-            "卸载识别模型",
-            $"将删除本地的 {option.DisplayName} 模型文件。",
-            "该模型负责的图片会暂停识别，重新下载后可继续。",
-            "卸载");
+            AppLocalization.Get("Confirm.UninstallTagModel.Title"),
+            AppLocalization.Format("Confirm.UninstallTagModel.Message", option.DisplayName),
+            AppLocalization.Get("Confirm.UninstallTagModel.Detail"),
+            AppLocalization.Get("Common.Uninstall"));
         if (confirmed) await vm.UninstallTagModelAsync(option.Id);
     }
 
@@ -120,10 +121,10 @@ public partial class SettingsView : UserControl
 
         var confirmed = await ConfirmWindow.AskAsync(
             owner,
-            "卸载语义模型",
-            "将删除本地的语义模型文件。",
-            "语义搜索与索引会暂停，重新下载后可继续。",
-            "卸载");
+            AppLocalization.Get("Confirm.UninstallSemantic.Title"),
+            AppLocalization.Get("Confirm.UninstallSemantic.Message"),
+            AppLocalization.Get("Confirm.UninstallSemantic.Detail"),
+            AppLocalization.Get("Common.Uninstall"));
         if (confirmed) await vm.UninstallSemanticModelAsync();
     }
 

@@ -15,7 +15,7 @@ public sealed class ThumbnailSizingTests
     [Fact]
     public void WideImage_InSquareTile_CoversCenterCrop()
     {
-        // 1.5:1 的横图铺满正方形瓦片时，宽度按高度放大到 1.5 倍，中心裁切才不虚。
+        // 1.5:1 的横图铺满正方形瓦片时，宽度按高度放大到 1.5 倍，中心裁切后才不会模糊。
         var size = ThumbnailSizing.ForBox(340, 340, 1.5, 1, 2048);
         Assert.Equal(512, size);
     }

@@ -10,7 +10,7 @@ public sealed class SearchQueryParser
         var tokens = Tokenize(input);
         var index = 0;
         var node = ParseOr(tokens, ref index);
-        if (index != tokens.Count) throw new SearchParseException($"无法识别的标记: {tokens[index]}");
+        if (index != tokens.Count) throw new SearchParseException($"无法识别的标记：{tokens[index]}");
         return node;
     }
 

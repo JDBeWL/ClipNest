@@ -11,9 +11,9 @@ public sealed class GalaxyRepository
 
     /// <summary>
     /// 读取星系快照，只包含主文件仍在磁盘上的资产，按拍摄时间倒序，缺失时用创建时间。
-    /// 默认不设条数上限；maxAssets 仅用于测试等需要截断的场景。
-    /// embeddingModelId 非空时同时读取这批资产在该模型下的嵌入向量。
     /// </summary>
+    /// <param name="maxAssets">返回的资产数量上限；默认不限制条数。</param>
+    /// <param name="embeddingModelId">非空时同时读取这批资产在该模型下的嵌入向量。</param>
     public async Task<GalaxySnapshot> GetSnapshotAsync(
         int maxAssets = int.MaxValue, string? embeddingModelId = null, CancellationToken ct = default)
     {

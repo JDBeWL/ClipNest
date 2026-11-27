@@ -50,16 +50,69 @@ public static class TagSelection
     /// 超过上限时按分数截断，再按下标重新排序。
     /// </summary>
     public static IReadOnlyList<AiTagScore> SelectScores(
-        IReadOnlyList<float> logits, string[] names, string[] categories)
+        IReadOnlyList<float> logits, string[] names, string[] categories) =>
+        SelectScoresCore(logits, names, categories, applySigmoid: true, SnapshotFloor);
+
+    /// <summary>
+    /// 从已归一化到 0..1 的概率中取分数快照，返回阈值之上的全部标签并按下标升序排列。
+    /// </summary>
+    public static IReadOnlyList<AiTagScore> SelectScoresFromProbabilities(
+        IReadOnlyList<float> probabilities,
+        string[] names,
+        string[] categories,
+        float snapshotFloor = SnapshotFloor) =>
+        SelectScoresCore(probabilities, names, categories, applySigmoid: false, snapshotFloor);
+
+    public static AiTagResult Select(IReadOnlyList<float> logits, string[] names, string[] categories) =>
+        SelectCore(
+            logits, names, categories, applySigmoid: true,
+            GeneralThreshold, CharacterFloor, SeriesThreshold, SeriesHintFloor);
+
+    /// <summary>
+    /// 按指定阈值从 logits 中筛选标签，用于概率分布偏陡的损失函数变体。
+    /// </summary>
+    public static AiTagResult Select(
+        IReadOnlyList<float> logits,
+        string[] names,
+        string[] categories,
+        float generalThreshold,
+        float characterFloor,
+        float seriesThreshold = SeriesThreshold,
+        float seriesHintFloor = SeriesHintFloor) =>
+        SelectCore(
+            logits, names, categories, applySigmoid: true,
+            generalThreshold, characterFloor, seriesThreshold, seriesHintFloor);
+
+    /// <summary>
+    /// 从已归一化到 0..1 的概率中筛选标签，用于图内已含 Sigmoid 的模型。
+    /// </summary>
+    public static AiTagResult SelectFromProbabilities(
+        IReadOnlyList<float> probabilities,
+        string[] names,
+        string[] categories,
+        float generalThreshold = GeneralThreshold,
+        float characterFloor = CharacterFloor,
+        float seriesThreshold = SeriesThreshold,
+        float seriesHintFloor = SeriesHintFloor) =>
+        SelectCore(
+            probabilities, names, categories, applySigmoid: false,
+            generalThreshold, characterFloor, seriesThreshold, seriesHintFloor);
+
+    private static IReadOnlyList<AiTagScore> SelectScoresCore(
+        IReadOnlyList<float> values,
+        string[] names,
+        string[] categories,
+        bool applySigmoid,
+        float snapshotFloor)
     {
-        if (logits.Count != names.Length || names.Length != categories.Length)
+        if (values.Count != names.Length || names.Length != categories.Length)
         {
             throw new InvalidOperationException(
-                $"模型输出维度 {logits.Count} 与标签表 {names.Length} 不一致");
+                $"模型输出维度 {values.Count} 与标签表 {names.Length} 不一致");
         }
 
         var scores = new List<AiTagScore>(256);
-        for (var i = 0; i < logits.Count; i++)
+        for (var i = 0; i < values.Count; i++)
         {
             var name = names[i];
             if (name.Length == 0)
@@ -67,8 +120,8 @@ public static class TagSelection
                 continue;
             }
 
-            var score = Sigmoid(logits[i]);
-            if (score >= SnapshotFloor)
+            var score = applySigmoid ? Sigmoid(values[i]) : Math.Clamp(values[i], 0f, 1f);
+            if (score >= snapshotFloor)
             {
                 scores.Add(new AiTagScore(i, name, categories[i], score));
             }
@@ -86,12 +139,20 @@ public static class TagSelection
             .ToList();
     }
 
-    public static AiTagResult Select(IReadOnlyList<float> logits, string[] names, string[] categories)
+    private static AiTagResult SelectCore(
+        IReadOnlyList<float> values,
+        string[] names,
+        string[] categories,
+        bool applySigmoid,
+        float generalThreshold,
+        float characterFloor,
+        float seriesThreshold,
+        float seriesHintFloor)
     {
-        if (logits.Count != names.Length || names.Length != categories.Length)
+        if (values.Count != names.Length || names.Length != categories.Length)
         {
             throw new InvalidOperationException(
-                $"模型输出维度 {logits.Count} 与标签表 {names.Length} 不一致");
+                $"模型输出维度 {values.Count} 与标签表 {names.Length} 不一致");
         }
 
         var general = new List<AiTag>(MaxGeneralTags);
@@ -99,7 +160,7 @@ public static class TagSelection
         var seriesCandidates = new List<AiTag>(8);
         AiTag? bestSeries = null;
 
-        for (var i = 0; i < logits.Count; i++)
+        for (var i = 0; i < values.Count; i++)
         {
             var name = names[i];
             if (name.Length == 0)
@@ -113,12 +174,12 @@ public static class TagSelection
                 continue;
             }
 
-            var score = Sigmoid(logits[i]);
+            var score = applySigmoid ? Sigmoid(values[i]) : Math.Clamp(values[i], 0f, 1f);
 
             switch (category)
             {
                 case AiTagCategory.General:
-                    if (score >= GeneralThreshold)
+                    if (score >= generalThreshold)
                     {
                         general.Add(new AiTag(name, category, score));
                     }
@@ -126,7 +187,7 @@ public static class TagSelection
                     break;
 
                 case AiTagCategory.Character:
-                    if (score >= CharacterFloor)
+                    if (score >= characterFloor)
                     {
                         characters.Add(new AiTag(name, category, score));
                     }
@@ -134,7 +195,7 @@ public static class TagSelection
                     break;
 
                 case AiTagCategory.Series:
-                    if (score >= SeriesHintFloor)
+                    if (score >= seriesHintFloor)
                     {
                         seriesCandidates.Add(new AiTag(name, category, score));
                     }
@@ -158,7 +219,7 @@ public static class TagSelection
         // 角色在前。界面按顺序取第一条作为结论，其余作为候选。
         tags.AddRange(topCharacters);
 
-        var series = ResolveSeries(topCharacters, seriesCandidates, bestSeries);
+        var series = ResolveSeries(topCharacters, seriesCandidates, bestSeries, seriesThreshold);
         if (series is not null)
         {
             tags.Add(series);
@@ -178,12 +239,13 @@ public static class TagSelection
     private static AiTag? ResolveSeries(
         IReadOnlyList<AiTag> characters,
         IReadOnlyList<AiTag> candidates,
-        AiTag? best)
+        AiTag? best,
+        float seriesThreshold)
     {
         var hint = SeriesHint(characters.Count > 0 ? characters[0].Name : null);
         if (hint is null)
         {
-            return best is not null && best.Score >= SeriesThreshold ? best : null;
+            return best is not null && best.Score >= seriesThreshold ? best : null;
         }
 
         if (SeriesAliases.TryGetValue(hint, out var alias))
@@ -222,7 +284,7 @@ public static class TagSelection
 
     /// <summary>
     /// 作品名匹配强度。精确名最高，其次是 <c>xxx_(series)</c> 与去后缀相同，
-    /// 再次是子系列，如 fate/grand_order，最后是上级系列，如 honkai_(series)。
+    /// 再次是如 <c>fate/grand_order</c> 的子系列，最后是如 <c>honkai_(series)</c> 的上级系列。
     /// </summary>
     private static int SeriesMatchQuality(string seriesName, string hint)
     {

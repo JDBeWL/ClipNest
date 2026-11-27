@@ -2,9 +2,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ClipNest.App.ViewModels"
              xmlns:controls="using:ClipNest.App.Controls"
+             xmlns:services="using:ClipNest.App.Services"
+             xmlns:theme="using:ClipNest.App.Theme"
              x:Class="ClipNest.App.Views.SettingsView"
              x:DataType="vm:MainWindowViewModel"
-             FontFamily="{StaticResource Font.UI}"
+             FontFamily="{DynamicResource Font.UI}"
              KeyboardNavigation.TabNavigation="Cycle">
 
   <UserControl.Styles>
@@ -16,7 +18,7 @@
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="10" />
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Nav}" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -44,33 +46,63 @@
       <Setter Property="Background" Value="{DynamicResource Brush.Accent.Subtle}" />
     </Style>
 
-    <!-- 右侧内容卡片使用玻璃底，与窗口底色拉开一层。 -->
+    <!-- 分组外标题与玻璃设置卡片，按功能分块拉开呼吸感。 -->
+    <Style Selector="TextBlock.groupLabel">
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="0.4" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Tertiary}" />
+      <Setter Property="Margin" Value="4,0,0,8" />
+    </Style>
     <Style Selector="Border.settingCard">
       <Setter Property="CornerRadius" Value="14" />
       <Setter Property="Background" Value="{DynamicResource Brush.Surface.Glass}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="Padding" Value="20" />
+      <Setter Property="Padding" Value="18,16" />
+    </Style>
+    <Style Selector="Border.settingDivider">
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Hairline}" />
+      <Setter Property="Margin" Value="0,14" />
+    </Style>
+    <Style Selector="Border.modelRowCard">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="14,11" />
+      <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
     <Style Selector="TextBlock.pageTitle">
-      <Setter Property="FontFamily" Value="{StaticResource Font.Display}" />
-      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontFamily" Value="{DynamicResource Font.Display}" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.PageTitle}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
     </Style>
     <Style Selector="TextBlock.rowTitle">
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+      <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
     </Style>
     <Style Selector="TextBlock.rowNote">
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
       <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Tertiary}" />
       <Setter Property="TextWrapping" Value="Wrap" />
-      <Setter Property="LineHeight" Value="17" />
+      <Setter Property="LineHeight" Value="{DynamicResource LineHeight.Caption}" />
     </Style>
     <Style Selector="Border.segmentWell">
       <Setter Property="Background" Value="{DynamicResource Brush.Control.Well}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="Padding" Value="3" />
+    </Style>
+    <Style Selector="Border.stepperWell">
+      <Setter Property="Background" Value="{DynamicResource Brush.Control.Well}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Subtle}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
       <Setter Property="Padding" Value="3" />
     </Style>
 
@@ -82,38 +114,34 @@
 
     <Style Selector="ToggleSwitch">
       <Setter Property="MinWidth" Value="0" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
       <Setter Property="OnContent" Value="" />
       <Setter Property="OffContent" Value="" />
       <Setter Property="IsThreeState" Value="False" />
-    </Style>
-    <Style Selector="Slider">
-      <Setter Property="MinWidth" Value="180" />
-      <Setter Property="MaxWidth" Value="240" />
     </Style>
   </UserControl.Styles>
 
   <Grid Background="{DynamicResource Brush.Surface.Window}" ColumnDefinitions="236,*">
 
-    <!-- 左导航。包含返回、标题与分区入口。 -->
-    <Border Grid.Column="0" Background="{DynamicResource Brush.Surface.Navigation}"
+    <!-- 左导航。包含返回、标题、分区入口与版本底注。 -->
+    <Border Grid.Column="0" Background="{DynamicResource Brush.Chrome}"
             BorderBrush="{DynamicResource Brush.Panel.Separator}" BorderThickness="0,0,1,0">
-      <Grid RowDefinitions="Auto,Auto,*">
+      <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-        <StackPanel Grid.Row="0" Margin="14,20,14,0" PointerPressed="Header_PointerPressed">
+        <StackPanel Grid.Row="0" Margin="12,18,12,0" PointerPressed="Header_PointerPressed">
           <Button x:Name="BackButton" Classes="settingsNav" Command="{Binding CloseSettingsCommand}"
-                  ToolTip.Tip="返回图库 (Esc)">
+                  ToolTip.Tip="{DynamicResource Str.Settings.BackTip}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <controls:StrokeIcon Data="{StaticResource Icon.ChevronLeft}" Width="14" Height="14"
                                    Thickness="1.7" VerticalAlignment="Center" />
-              <TextBlock Text="返回图库" VerticalAlignment="Center" />
+              <TextBlock Text="{DynamicResource Str.Settings.Back}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
         </StackPanel>
 
-        <StackPanel Grid.Row="1" Margin="20,18,20,14" Spacing="2" PointerPressed="Header_PointerPressed">
-          <TextBlock Text="设置" Classes="display" />
-          <TextBlock Text="外观、浏览与 AI 处理" Classes="caption" />
+        <StackPanel Grid.Row="1" Margin="20,18,20,14" Spacing="3" PointerPressed="Header_PointerPressed">
+          <TextBlock Text="{DynamicResource Str.Settings.Title}" Classes="display" />
+          <TextBlock Text="{DynamicResource Str.Settings.Subtitle}" Classes="caption" />
         </StackPanel>
 
         <StackPanel Grid.Row="2" Margin="10,4,10,16" Spacing="2">
@@ -122,7 +150,7 @@
             <Grid ColumnDefinitions="Auto,*">
               <controls:StrokeIcon Data="{StaticResource Icon.Sun}" Width="16" Height="16"
                                    Thickness="1.6" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="外观" Margin="10,0,0,0" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="{DynamicResource Str.Settings.Nav.Appearance}" Margin="10,0,0,0" VerticalAlignment="Center" />
             </Grid>
           </Button>
           <Button Classes="settingsNav" Classes.active="{Binding IsBrowsingSection}"
@@ -130,7 +158,7 @@
             <Grid ColumnDefinitions="Auto,*">
               <controls:StrokeIcon Data="{StaticResource Icon.Grid}" Width="16" Height="16"
                                    Thickness="1.6" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="浏览与搜索" Margin="10,0,0,0" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="{DynamicResource Str.Settings.Nav.Browsing}" Margin="10,0,0,0" VerticalAlignment="Center" />
             </Grid>
           </Button>
           <Button Classes="settingsNav" Classes.active="{Binding IsAiSection}"
@@ -138,7 +166,7 @@
             <Grid ColumnDefinitions="Auto,*">
               <controls:StrokeIcon Data="{StaticResource Icon.Sparkle}" Width="16" Height="16"
                                    Thickness="1.6" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="AI 管理" Margin="10,0,0,0" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="{DynamicResource Str.Settings.Nav.Ai}" Margin="10,0,0,0" VerticalAlignment="Center" />
             </Grid>
           </Button>
           <Button Classes="settingsNav" Classes.active="{Binding IsDataSection}"
@@ -146,10 +174,15 @@
             <Grid ColumnDefinitions="Auto,*">
               <controls:StrokeIcon Data="{StaticResource Icon.Folder}" Width="16" Height="16"
                                    Thickness="1.6" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="数据" Margin="10,0,0,0" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="{DynamicResource Str.Settings.Nav.Data}" Margin="10,0,0,0" VerticalAlignment="Center" />
             </Grid>
           </Button>
         </StackPanel>
+
+        <Border Grid.Row="3" Padding="20,12,20,16"
+                BorderBrush="{DynamicResource Brush.Hairline}" BorderThickness="0,1,0,0">
+          <TextBlock Text="{Binding AppVersion, StringFormat='ClipNest {0}'}" Classes="caption" />
+        </Border>
       </Grid>
     </Border>
 
@@ -160,307 +193,542 @@
 
       <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                     HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Width="640" Margin="24,4,24,48" Spacing="20" HorizontalAlignment="Center">
+        <StackPanel MaxWidth="680" Margin="32,4,32,56" Spacing="20" HorizontalAlignment="Stretch">
 
-          <!-- 外观 -->
-          <StackPanel IsVisible="{Binding IsAppearanceSection}" Spacing="18">
+          <!-- 外观。 -->
+          <StackPanel IsVisible="{Binding IsAppearanceSection}" Spacing="20">
             <StackPanel Spacing="4">
-              <TextBlock Text="外观" Classes="pageTitle" />
-              <TextBlock Text="选择 ClipNest 的配色；跟随系统时会随 Windows 深浅色自动切换。"
+              <TextBlock Text="{DynamicResource Str.Settings.Nav.Appearance}" Classes="pageTitle" />
+              <TextBlock Text="{DynamicResource Str.Settings.Appearance.Desc}"
                          Classes="caption" TextWrapping="Wrap" />
             </StackPanel>
-            <Border Classes="settingCard">
-              <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Text="主题" Classes="rowTitle" />
-                  <TextBlock Text="深色玻璃、浅色玻璃，或跟随 Windows" Classes="rowNote" />
-                </StackPanel>
-                <Border Grid.Column="1" Classes="segmentWell" VerticalAlignment="Center">
-                  <StackPanel Orientation="Horizontal" Spacing="2">
-                    <Button Classes="segment" Classes.active="{Binding IsAppearanceDark}"
-                            Command="{Binding SelectAppearanceCommand}" CommandParameter="Dark"
-                            Content="深色" />
-                    <Button Classes="segment" Classes.active="{Binding IsAppearanceLight}"
-                            Command="{Binding SelectAppearanceCommand}" CommandParameter="Light"
-                            Content="浅色" />
-                    <Button Classes="segment" Classes.active="{Binding IsAppearanceSystem}"
-                            Command="{Binding SelectAppearanceCommand}" CommandParameter="System"
-                            Content="跟随系统" />
-                  </StackPanel>
-                </Border>
-              </Grid>
-            </Border>
-          </StackPanel>
 
-          <!-- 浏览与搜索 -->
-          <StackPanel IsVisible="{Binding IsBrowsingSection}" Spacing="18">
-            <StackPanel Spacing="4">
-              <TextBlock Text="浏览与搜索" Classes="pageTitle" />
-              <TextBlock Text="默认的缩略图大小、排序方式与搜索行为。"
-                         Classes="caption" TextWrapping="Wrap" />
-            </StackPanel>
-            <Border Classes="settingCard">
-              <StackPanel Spacing="2">
-                <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,14">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="缩略图大小" Classes="rowTitle" />
-                    <TextBlock Text="{Binding ThumbnailSize, StringFormat='{}{0:0} px'}" Classes="rowNote" />
-                  </StackPanel>
-                  <Slider Grid.Column="1" Width="220" Minimum="132" Maximum="340"
-                          Value="{Binding ThumbnailSize, Mode=TwoWay}" VerticalAlignment="Center" />
-                </Grid>
-
-                <Border Height="1" Background="{DynamicResource Brush.Hairline}" />
-
-                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,4">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="默认排序" Classes="rowTitle" />
-                    <TextBlock Text="图库列表的排序方式" Classes="rowNote" />
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.Theme}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <TextBlock Text="{DynamicResource Str.Settings.Appearance.Mode}" Classes="rowTitle" />
+                    <TextBlock Text="{DynamicResource Str.Settings.Appearance.ModeNote}" Classes="rowNote" />
                   </StackPanel>
                   <Border Grid.Column="1" Classes="segmentWell" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="2">
-                      <Button Classes="segment" Classes.active="{Binding IsSortDefault}"
-                              Command="{Binding ApplySortModeCommand}" CommandParameter="default"
-                              Content="默认" />
-                      <Button Classes="segment" Classes.active="{Binding IsSortTaken}"
-                              Command="{Binding ApplySortModeCommand}" CommandParameter="taken"
-                              Content="拍摄时间" />
-                      <Button Classes="segment" Classes.active="{Binding IsSortName}"
-                              Command="{Binding ApplySortModeCommand}" CommandParameter="name"
-                              Content="文件名" />
-                      <Button Classes="segment" Classes.active="{Binding IsSortRating}"
-                              Command="{Binding ApplySortModeCommand}" CommandParameter="rating"
-                              Content="评分" />
+                      <Button Classes="segment" Classes.active="{Binding IsAppearanceDark}"
+                              Command="{Binding SelectAppearanceCommand}" CommandParameter="Dark"
+                              Content="{DynamicResource Str.Settings.Appearance.Dark}" />
+                      <Button Classes="segment" Classes.active="{Binding IsAppearanceLight}"
+                              Command="{Binding SelectAppearanceCommand}" CommandParameter="Light"
+                              Content="{DynamicResource Str.Settings.Appearance.Light}" />
+                      <Button Classes="segment" Classes.active="{Binding IsAppearanceSystem}"
+                              Command="{Binding SelectAppearanceCommand}" CommandParameter="System"
+                              Content="{DynamicResource Str.Settings.Appearance.System}" />
                     </StackPanel>
                   </Border>
                 </Grid>
+              </Border>
+            </StackPanel>
 
-                <Border Height="1" Background="{DynamicResource Brush.Hairline}" Margin="0,10,0,0" />
-
-                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,4">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="详情栏" Classes="rowTitle" />
-                    <TextBlock Text="打开图库时显示右侧详情面板" Classes="rowNote" />
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.Language}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <Grid ColumnDefinitions="*,248">
+                  <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <TextBlock Text="{DynamicResource Str.Settings.Language.Title}" Classes="rowTitle" />
+                    <TextBlock Text="{DynamicResource Str.Settings.Language.Note}" Classes="rowNote" />
                   </StackPanel>
-                  <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsInspectorOpen, Mode=TwoWay}"
-                                VerticalAlignment="Center" />
+                  <ComboBox x:Name="LanguageComboBox" Grid.Column="1"
+                            ItemsSource="{Binding AvailableLanguages}"
+                            SelectedItem="{Binding SelectedLanguageChoice, Mode=TwoWay}"
+                            MaxDropDownHeight="280"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="services:LanguageChoice">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
                 </Grid>
+              </Border>
+            </StackPanel>
 
-                <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,2">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="语义搜索" Classes="rowTitle" />
-                    <TextBlock Text="默认按画面内容理解搜索词，而不只匹配文件名" Classes="rowNote" />
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.Typography}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,248">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.Font.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.Font.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <ComboBox x:Name="FontFamilyComboBox" Grid.Column="1"
+                              ItemsSource="{Binding AvailableFonts}"
+                              SelectedItem="{Binding SelectedFontChoice, Mode=TwoWay}"
+                              MaxDropDownHeight="320"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="theme:FontChoice">
+                          <TextBlock Text="{Binding DisplayName}"
+                                     FontFamily="{Binding PreviewFontFamily}"
+                                     TextTrimming="CharacterEllipsis"
+                                     VerticalAlignment="Center" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </Grid>
+
+                  <Border Classes="settingDivider" />
+
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.FontScale.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.FontScale.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Classes="segmentWell" VerticalAlignment="Center">
+                      <StackPanel Orientation="Horizontal" Spacing="2">
+                        <Button Classes="segment" Classes.active="{Binding IsFontScaleCompact}"
+                                Command="{Binding SelectFontScaleCommand}" CommandParameter="Compact"
+                                Content="{DynamicResource Str.Settings.FontScale.Compact}" />
+                        <Button Classes="segment" Classes.active="{Binding IsFontScaleStandard}"
+                                Command="{Binding SelectFontScaleCommand}" CommandParameter="Standard"
+                                Content="{DynamicResource Str.Settings.FontScale.Standard}" />
+                        <Button Classes="segment" Classes.active="{Binding IsFontScaleComfortable}"
+                                Command="{Binding SelectFontScaleCommand}" CommandParameter="Comfortable"
+                                Content="{DynamicResource Str.Settings.FontScale.Comfortable}" />
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+
+                  <Border Classes="settingDivider" />
+
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{DynamicResource Str.Settings.Typography.Preview}" Classes="section" VerticalAlignment="Center" />
+                      <Button Grid.Column="1" Classes="ghost" MinHeight="26" Padding="10,0"
+                              FontSize="{DynamicResource FontSize.Caption}"
+                              Content="{DynamicResource Str.Common.ResetDefault}"
+                              IsVisible="{Binding CanResetTypography}"
+                              Command="{Binding ResetTypographyCommand}" />
+                    </Grid>
+                    <Border Background="{DynamicResource Brush.Surface.Card}"
+                            BorderBrush="{DynamicResource Brush.Border.Subtle}"
+                            BorderThickness="1" CornerRadius="10" Padding="14,12">
+                      <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                          <TextBlock Text="{DynamicResource Str.Nav.AllImages}" Classes="display" VerticalAlignment="Center" />
+                          <Border Grid.Column="1" Background="{DynamicResource Brush.Surface.Elevated}"
+                                  CornerRadius="999" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="101" FontSize="{DynamicResource FontSize.Caption}"
+                                       Foreground="{DynamicResource Brush.Text.Tertiary}" />
+                          </Border>
+                          <TextBlock Grid.Column="3" Text="{DynamicResource Str.Sort.Default}" Classes="caption" VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBlock Text="{DynamicResource Str.Settings.Typography.PreviewSample}"
+                                   Classes="body" TextWrapping="Wrap" />
+                        <TextBlock Text="CAMIE Tagger v2 · 1920 × 1080 · Ctrl+K · E:\pic\Elaina"
+                                   Classes="caption" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </Border>
                   </StackPanel>
-                  <ToggleSwitch Grid.Column="1" IsChecked="{Binding SemanticEnabled, Mode=TwoWay}"
-                                VerticalAlignment="Center" />
-                </Grid>
-              </StackPanel>
-            </Border>
+                </StackPanel>
+              </Border>
+            </StackPanel>
           </StackPanel>
 
-          <!-- AI 管理 -->
-          <StackPanel IsVisible="{Binding IsAiSection}" Spacing="18">
+          <!-- 浏览与搜索。 -->
+          <StackPanel IsVisible="{Binding IsBrowsingSection}" Spacing="20">
             <StackPanel Spacing="4">
-              <TextBlock Text="AI 管理" Classes="pageTitle" />
-              <TextBlock Text="自动识别与语义索引在本地运行，关闭后不会领取新任务。"
+              <TextBlock Text="{DynamicResource Str.Settings.Nav.Browsing}" Classes="pageTitle" />
+              <TextBlock Text="{DynamicResource Str.Settings.Browsing.Desc}"
                          Classes="caption" TextWrapping="Wrap" />
             </StackPanel>
-            <Border Classes="settingCard">
-              <StackPanel Spacing="2">
-                <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,12">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="自动识别新图片" Classes="rowTitle" />
-                    <TextBlock Text="关闭后不再领取新任务，正在处理的一张会完成" Classes="rowNote" />
-                  </StackPanel>
-                  <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoTaggingEnabled, Mode=TwoWay}"
-                                VerticalAlignment="Center" />
-                </Grid>
 
-                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="自动生成语义索引" Classes="rowTitle" />
-                    <TextBlock Text="关闭后不自动编码新图片，语义搜索只覆盖已有索引" Classes="rowNote" />
-                  </StackPanel>
-                  <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoIndexingEnabled, Mode=TwoWay}"
-                                VerticalAlignment="Center" />
-                </Grid>
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.GalleryDisplay}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.ThumbSize.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.ThumbSize.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                      <Border Classes="kbd" Padding="8,3">
+                        <TextBlock Text="{Binding ThumbnailSize, StringFormat='{}{0:0} px'}"
+                                   FontSize="{DynamicResource FontSize.Caption}"
+                                   Foreground="{DynamicResource Brush.Text.Secondary}" />
+                      </Border>
+                      <controls:GalleryZoomSlider Width="168" Height="20" Minimum="132" Maximum="340"
+                                                  Value="{Binding ThumbnailSize, Mode=TwoWay}"
+                                                  VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Grid>
 
-                <Border Height="1" Background="{DynamicResource Brush.Hairline}" Margin="0,2,0,0" />
+                  <Border Classes="settingDivider" />
 
-                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,6">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="重新识别标签" Classes="rowTitle" />
-                    <TextBlock Text="清除现有 AI 标签并按各文件夹的模型重新识别，角色与作品按模型结论重建"
-                               Classes="rowNote" TextWrapping="Wrap" />
-                  </StackPanel>
-                  <Button Grid.Column="1" Classes="ghost" Content="重新识别"
-                          Click="ReidentifyTags_Click"
-                          IsEnabled="{Binding CanReidentifyTags}" />
-                </Grid>
-
-                <Grid ColumnDefinitions="*" Margin="0,14,0,6">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="识别模型" Classes="rowTitle" />
-                    <TextBlock Text="{Binding TagModelStatus}" Classes="rowNote" TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding AccelerationStatus}" Classes="rowNote" TextWrapping="Wrap" />
-                    <ProgressBar Height="4" Maximum="1" Value="{Binding TagProgress}"
-                                 IsVisible="{Binding IsTagging}" Margin="0,4,0,2"
-                                 HorizontalAlignment="Stretch" />
-                    <TextBlock Text="CAMIE 识别角色、作品与特征；RAM++ 与 SigLIP2 只识别通用物体与场景，SigLIP2 更快但标签更宽泛。"
-                               Classes="rowNote" TextWrapping="Wrap" />
-                  </StackPanel>
-                </Grid>
-
-                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,6">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="推理线程数" Classes="rowTitle" />
-                    <TextBlock Text="ONNX Runtime 的算子线程数，识别在后台运行；线程越多占用 CPU 越多，上限为逻辑核心数"
-                               Classes="rowNote" TextWrapping="Wrap" />
-                  </StackPanel>
-                  <NumericUpDown Grid.Column="1" Width="120" Minimum="1" Increment="1"
-                                 Maximum="{Binding MaxInferenceThreads}"
-                                 Value="{Binding InferenceThreads, Mode=TwoWay}"
-                                 VerticalAlignment="Center" />
-                </Grid>
-
-                <ItemsControl ItemsSource="{Binding TagModels}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:TagModelOption">
-                      <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,2">
-                        <StackPanel Spacing="2" VerticalAlignment="Center">
-                          <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="{Binding DisplayName}" Classes="rowTitle" />
-                            <Border IsVisible="{Binding IsDefault}" VerticalAlignment="Center"
-                                    Background="{DynamicResource Brush.State.SuccessSubtle}"
-                                    CornerRadius="999" Padding="6,1">
-                              <TextBlock Text="默认" FontSize="11"
-                                         Foreground="{DynamicResource Brush.State.Success}" />
-                            </Border>
-                          </StackPanel>
-                          <TextBlock Text="{Binding Status}" Classes="rowNote" />
-                          <ProgressBar Width="120" Height="4" Maximum="1"
-                                       HorizontalAlignment="Left"
-                                       Value="{Binding Progress}"
-                                       IsVisible="{Binding IsDownloading}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                                    VerticalAlignment="Center">
-                          <Button Classes="ghost" Content="下载"
-                                  Click="DownloadTagModel_Click" Tag="{Binding}"
-                                  IsVisible="{Binding !IsReady}"
-                                  IsEnabled="{Binding !IsDownloading}" />
-                          <Button Classes="ghost" Content="取消"
-                                  Click="CancelTagModel_Click" Tag="{Binding}"
-                                  IsVisible="{Binding IsDownloading}" />
-                          <Button Classes="ghost" Content="设为默认"
-                                  Click="SetDefaultTagModel_Click" Tag="{Binding}"
-                                  IsVisible="{Binding !IsDefault}" />
-                          <Button Classes="ghost" Content="卸载"
-                                  Click="UninstallTagModel_Click" Tag="{Binding}"
-                                  IsVisible="{Binding IsReady}" />
-                        </StackPanel>
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <TextBlock Text="文件夹模型" Classes="rowTitle" Margin="0,14,0,0" />
-                <TextBlock Text="指定文件夹使用的识别模型；跟随默认会使用上面的默认模型。"
-                           Classes="rowNote" TextWrapping="Wrap" />
-
-                <ItemsControl ItemsSource="{Binding FolderTagModels}"
-                              IsVisible="{Binding HasFolderTagModels}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:FolderTagModelOption">
-                      <Grid ColumnDefinitions="*,170" Margin="0,6,0,2">
-                        <StackPanel Spacing="1" VerticalAlignment="Center" Margin="0,0,12,0">
-                          <TextBlock Text="{Binding Folder.Name}" Classes="rowTitle"
-                                     TextTrimming="CharacterEllipsis" />
-                          <TextBlock Text="{Binding Folder.Path}" Classes="rowNote"
-                                     TextTrimming="CharacterEllipsis"
-                                     ToolTip.Tip="{Binding Folder.Path}" />
-                        </StackPanel>
-                        <ComboBox Grid.Column="1" ItemsSource="{Binding Choices}"
-                                  SelectedItem="{Binding Selected, Mode=TwoWay}"
-                                  SelectionChanged="FolderModel_SelectionChanged"
-                                  HorizontalAlignment="Stretch" VerticalAlignment="Center">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:TagModelOption">
-                              <TextBlock Text="{Binding DisplayName}" />
-                            </DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <TextBlock Text="还没有导入文件夹" Classes="rowNote"
-                           IsVisible="{Binding !HasFolderTagModels}" Margin="0,4,0,0" />
-
-                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,2">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="语义模型" Classes="rowTitle" />
-                    <TextBlock Text="{Binding SemanticStatus}" Classes="rowNote" />
-                  </StackPanel>
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Border IsVisible="{Binding IsModelReady}" VerticalAlignment="Center"
-                            Background="{DynamicResource Brush.State.SuccessSubtle}" CornerRadius="999"
-                            Padding="10,4">
-                      <TextBlock Text="已就绪" FontSize="12"
-                                 Foreground="{DynamicResource Brush.State.Success}" />
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.DefaultSort.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.DefaultSort.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Classes="segmentWell" VerticalAlignment="Center">
+                      <StackPanel Orientation="Horizontal" Spacing="2">
+                        <Button Classes="segment" Classes.active="{Binding IsSortDefault}"
+                                Command="{Binding ApplySortModeCommand}" CommandParameter="default"
+                                Content="{DynamicResource Str.Sort.DefaultShort}" />
+                        <Button Classes="segment" Classes.active="{Binding IsSortTaken}"
+                                Command="{Binding ApplySortModeCommand}" CommandParameter="taken"
+                                Content="{DynamicResource Str.Sort.TakenShort}" />
+                        <Button Classes="segment" Classes.active="{Binding IsSortName}"
+                                Command="{Binding ApplySortModeCommand}" CommandParameter="name"
+                                Content="{DynamicResource Str.Sort.NameShort}" />
+                        <Button Classes="segment" Classes.active="{Binding IsSortRating}"
+                                Command="{Binding ApplySortModeCommand}" CommandParameter="rating"
+                                Content="{DynamicResource Str.Sort.Rating}" />
+                      </StackPanel>
                     </Border>
-                    <ProgressBar Width="90" Height="4" Maximum="1"
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.PanelSearch}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.InspectorOpen.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.InspectorOpen.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsInspectorOpen, Mode=TwoWay}"
+                                  VerticalAlignment="Center" />
+                  </Grid>
+
+                  <Border Classes="settingDivider" />
+
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.SemanticDefault.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.SemanticDefault.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding SemanticEnabled, Mode=TwoWay}"
+                                  VerticalAlignment="Center" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </StackPanel>
+
+          <!-- AI 管理。 -->
+          <StackPanel IsVisible="{Binding IsAiSection}" Spacing="20">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{DynamicResource Str.Settings.Nav.Ai}" Classes="pageTitle" />
+              <TextBlock Text="{DynamicResource Str.Settings.Ai.Desc}"
+                         Classes="caption" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <!-- 后台自动化开关。 -->
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.Automation}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.AutoTagging.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.AutoTagging.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoTaggingEnabled, Mode=TwoWay}"
+                                  VerticalAlignment="Center" />
+                  </Grid>
+
+                  <Border Classes="settingDivider" />
+
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.AutoIndexing.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.AutoIndexing.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoIndexingEnabled, Mode=TwoWay}"
+                                  VerticalAlignment="Center" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <!-- 识别模型与推理性能。 -->
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.TagModels}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.Ai.CurrentStatus}" Classes="rowTitle" />
+                      <TextBlock Text="{Binding TagModelStatus}" Classes="rowNote" />
+                      <ProgressBar Height="4" Maximum="1" Value="{Binding TagProgress}"
+                                   IsVisible="{Binding IsTagging}" Margin="0,4,0,0"
+                                   HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <Border Grid.Column="1" IsVisible="{Binding HasAccelerationStatus}"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource Brush.Control.Well}"
+                            BorderBrush="{DynamicResource Brush.Border.Subtle}" BorderThickness="1"
+                            CornerRadius="999" Padding="10,4">
+                      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Width="7" Height="7" CornerRadius="999" VerticalAlignment="Center"
+                                Background="{DynamicResource Brush.State.Success}"
+                                IsVisible="{Binding IsGpuAccelerationReady}" />
+                        <Border Width="7" Height="7" CornerRadius="999" VerticalAlignment="Center"
+                                Background="{DynamicResource Brush.Text.Tertiary}"
+                                IsVisible="{Binding !IsGpuAccelerationReady}" />
+                        <TextBlock Text="{Binding AccelerationStatus}"
+                                   FontSize="{DynamicResource FontSize.Caption}"
+                                   Foreground="{DynamicResource Brush.Text.Secondary}"
+                                   VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+
+                  <Border Classes="settingDivider" />
+
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.Threads.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.Threads.Note}" Classes="rowNote" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Classes="stepperWell" VerticalAlignment="Center">
+                      <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                        <Button x:Name="DecreaseThreadsButton" Classes="icon" Width="26" Height="26"
+                                CornerRadius="7"
+                                Command="{Binding DecreaseInferenceThreadsCommand}"
+                                IsEnabled="{Binding CanDecreaseInferenceThreads}"
+                                ToolTip.Tip="{DynamicResource Str.Settings.Threads.DecreaseTip}">
+                          <controls:StrokeIcon Data="{StaticResource Icon.WinMinimize}" Width="10" Height="10" Thickness="1.7" />
+                        </Button>
+                        <TextBlock x:Name="InferenceThreadsText"
+                                   Text="{Binding InferenceThreadsDisplay}"
+                                   Width="36" TextAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="{DynamicResource FontSize.Body}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.Text.Primary}" />
+                        <Button x:Name="IncreaseThreadsButton" Classes="icon" Width="26" Height="26"
+                                CornerRadius="7"
+                                Command="{Binding IncreaseInferenceThreadsCommand}"
+                                IsEnabled="{Binding CanIncreaseInferenceThreads}"
+                                ToolTip.Tip="{DynamicResource Str.Settings.Threads.IncreaseTip}">
+                          <controls:StrokeIcon Data="{StaticResource Icon.Plus}" Width="10" Height="10" Thickness="1.7" />
+                        </Button>
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+
+                  <Border Classes="settingDivider" />
+
+                  <ItemsControl ItemsSource="{Binding TagModels}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:TagModelOption">
+                        <Border Classes="modelRowCard">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Border Width="7" Height="7" CornerRadius="999" VerticalAlignment="Center"
+                                        Background="{DynamicResource Brush.State.Success}"
+                                        IsVisible="{Binding IsReady}" />
+                                <Border Width="7" Height="7" CornerRadius="999" VerticalAlignment="Center"
+                                        Background="{DynamicResource Brush.Text.Disabled}"
+                                        IsVisible="{Binding !IsReady}" />
+                                <TextBlock Text="{Binding DisplayName}" Classes="rowTitle" VerticalAlignment="Center" />
+                                <Border IsVisible="{Binding IsDefault}" VerticalAlignment="Center"
+                                        Background="{DynamicResource Brush.State.SuccessSubtle}"
+                                        CornerRadius="999" Padding="7,1">
+                                  <TextBlock Text="{DynamicResource Str.Common.DefaultBadge}" FontSize="{DynamicResource FontSize.Micro}"
+                                             FontWeight="Medium"
+                                             Foreground="{DynamicResource Brush.State.Success}" />
+                                </Border>
+                                <TextBlock Text="{Binding Status}" FontSize="{DynamicResource FontSize.Micro}"
+                                           Foreground="{DynamicResource Brush.Text.Tertiary}"
+                                           VerticalAlignment="Center" />
+                              </StackPanel>
+                              <TextBlock Text="{Binding Description}" Classes="rowNote"
+                                         IsVisible="{Binding HasDescription}" Margin="15,0,0,0" />
+                              <ProgressBar Width="160" Height="4" Maximum="1"
+                                           HorizontalAlignment="Left" Margin="15,3,0,0"
+                                           Value="{Binding Progress}"
+                                           IsVisible="{Binding IsDownloading}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                        VerticalAlignment="Center">
+                              <Button Classes="ghost" Content="{DynamicResource Str.Common.Download}"
+                                      Click="DownloadTagModel_Click" Tag="{Binding}"
+                                      IsVisible="{Binding !IsReady}"
+                                      IsEnabled="{Binding !IsDownloading}" />
+                              <Button Classes="ghost" Content="{DynamicResource Str.Common.Cancel}"
+                                      Click="CancelTagModel_Click" Tag="{Binding}"
+                                      IsVisible="{Binding IsDownloading}" />
+                              <Button Classes="ghost" Content="{DynamicResource Str.Common.SetDefault}"
+                                      Click="SetDefaultTagModel_Click" Tag="{Binding}"
+                                      IsVisible="{Binding !IsDefault}" />
+                              <Button Classes="ghost danger" Content="{DynamicResource Str.Common.Uninstall}"
+                                      Click="UninstallTagModel_Click" Tag="{Binding}"
+                                      IsVisible="{Binding IsReady}" />
+                            </StackPanel>
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <Border Classes="settingDivider" Margin="0,6,0,14" />
+
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                      <TextBlock Text="{DynamicResource Str.Settings.Reidentify.Title}" Classes="rowTitle" />
+                      <TextBlock Text="{DynamicResource Str.Settings.Reidentify.Note}"
+                                 Classes="rowNote" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="ghost danger" Content="{DynamicResource Str.Settings.Reidentify.Button}"
+                            Click="ReidentifyTags_Click"
+                            IsEnabled="{Binding CanReidentifyTags}"
+                            VerticalAlignment="Center" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <!-- 文件夹专属模型。 -->
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.FolderModels}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <StackPanel Spacing="12">
+                  <TextBlock Text="{DynamicResource Str.Settings.FolderModels.Note}"
+                             Classes="rowNote" />
+
+                  <Border Height="1" Background="{DynamicResource Brush.Hairline}"
+                          IsVisible="{Binding HasFolderTagModels}" />
+
+                  <ItemsControl ItemsSource="{Binding FolderTagModels}"
+                                IsVisible="{Binding HasFolderTagModels}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:FolderTagModelOption">
+                        <Grid ColumnDefinitions="*,184" Margin="0,4">
+                          <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock Text="{Binding Folder.Name}" Classes="rowTitle"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Folder.Path}" Classes="rowNote"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Folder.Path}" />
+                          </StackPanel>
+                          <ComboBox Grid.Column="1" ItemsSource="{Binding Choices}"
+                                    SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                    SelectionChanged="FolderModel_SelectionChanged"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:TagModelOption">
+                                <TextBlock Text="{Binding DisplayName}" />
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <Border IsVisible="{Binding !HasFolderTagModels}"
+                          Background="{DynamicResource Brush.Surface.Card}"
+                          BorderBrush="{DynamicResource Brush.Border.Subtle}" BorderThickness="1"
+                          CornerRadius="10" Padding="14,12">
+                    <TextBlock Text="{DynamicResource Str.Settings.FolderModels.Empty}"
+                               Classes="rowNote" />
+                  </Border>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <!-- 语义搜索模型。 -->
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.Semantic}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                      <Border Width="7" Height="7" CornerRadius="999" VerticalAlignment="Center"
+                              Background="{DynamicResource Brush.State.Success}"
+                              IsVisible="{Binding IsModelReady}" />
+                      <Border Width="7" Height="7" CornerRadius="999" VerticalAlignment="Center"
+                              Background="{DynamicResource Brush.Text.Disabled}"
+                              IsVisible="{Binding !IsModelReady}" />
+                      <TextBlock Text="{DynamicResource Str.Settings.Semantic.ModelName}" Classes="rowTitle" VerticalAlignment="Center" />
+                      <Border IsVisible="{Binding IsModelReady}" VerticalAlignment="Center"
+                              Background="{DynamicResource Brush.State.SuccessSubtle}" CornerRadius="999"
+                              Padding="7,1">
+                        <TextBlock Text="{DynamicResource Str.Common.Installed}" FontSize="{DynamicResource FontSize.Micro}"
+                                   FontWeight="Medium"
+                                   Foreground="{DynamicResource Brush.State.Success}" />
+                      </Border>
+                    </StackPanel>
+                    <TextBlock Text="{DynamicResource Str.Settings.Semantic.ModelNote}" Classes="rowNote" Margin="15,0,0,0" />
+                    <TextBlock Text="{Binding SemanticStatus}" Classes="rowNote" Margin="15,0,0,0" />
+                    <ProgressBar Width="160" Height="4" Maximum="1"
+                                 HorizontalAlignment="Left" Margin="15,3,0,0"
                                  Value="{Binding ModelDownloadProgress}"
                                  IsVisible="{Binding IsModelDownloading}" />
-                    <Button Classes="ghost" Content="下载"
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Classes="ghost" Content="{DynamicResource Str.Common.Download}"
                             Command="{Binding DownloadModelCommand}"
                             IsVisible="{Binding !IsModelReady}"
                             IsEnabled="{Binding !IsModelDownloading}" />
-                    <Button Classes="ghost" Content="取消"
+                    <Button Classes="ghost" Content="{DynamicResource Str.Common.Cancel}"
                             Click="CancelSemanticModel_Click"
                             IsVisible="{Binding IsModelDownloading}" />
-                    <Button Classes="ghost" Content="卸载"
+                    <Button Classes="ghost danger" Content="{DynamicResource Str.Common.Uninstall}"
                             Click="UninstallSemanticModel_Click"
                             IsVisible="{Binding IsModelReady}" />
                   </StackPanel>
                 </Grid>
-              </StackPanel>
-            </Border>
+              </Border>
+            </StackPanel>
           </StackPanel>
 
-          <!-- 数据 -->
-          <StackPanel IsVisible="{Binding IsDataSection}" Spacing="18">
+          <!-- 数据。 -->
+          <StackPanel IsVisible="{Binding IsDataSection}" Spacing="20">
             <StackPanel Spacing="4">
-              <TextBlock Text="数据" Classes="pageTitle" />
-              <TextBlock Text="数据库、缩略图缓存、模型与设置文件都保存在数据目录。"
+              <TextBlock Text="{DynamicResource Str.Settings.Nav.Data}" Classes="pageTitle" />
+              <TextBlock Text="{DynamicResource Str.Settings.Data.Desc}"
                          Classes="caption" TextWrapping="Wrap" />
             </StackPanel>
-            <Border Classes="settingCard">
-              <StackPanel Spacing="2">
-                <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,14">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="数据目录" Classes="rowTitle" />
+
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.Storage}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <TextBlock Text="{DynamicResource Str.Settings.DataDir.Title}" Classes="rowTitle" />
                     <TextBlock Text="{Binding DataDirectory}" Classes="rowNote"
+                               TextTrimming="CharacterEllipsis"
                                ToolTip.Tip="{Binding DataDirectory}" />
                   </StackPanel>
                   <Button Grid.Column="1" Classes="ghost" VerticalAlignment="Center"
-                          Content="打开目录" Click="OpenDataFolder_Click" />
+                          Content="{DynamicResource Str.Settings.DataDir.Open}" Click="OpenDataFolder_Click" />
                 </Grid>
+              </Border>
+            </StackPanel>
 
-                <Border Height="1" Background="{DynamicResource Brush.Hairline}" />
-
-                <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,2">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="版本" Classes="rowTitle" />
-                    <TextBlock Text="ClipNest 当前版本" Classes="rowNote" />
+            <StackPanel>
+              <TextBlock Text="{DynamicResource Str.Settings.Group.About}" Classes="groupLabel" />
+              <Border Classes="settingCard">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <TextBlock Text="{DynamicResource Str.Settings.Version.Title}" Classes="rowTitle" />
+                    <TextBlock Text="{DynamicResource Str.Settings.Version.Note}" Classes="rowNote" />
                   </StackPanel>
-                  <TextBlock Grid.Column="1" Text="{Binding AppVersion}" FontSize="13"
-                             Foreground="{DynamicResource Brush.Text.Secondary}"
-                             VerticalAlignment="Center" />
+                  <Border Grid.Column="1" Classes="kbd" Padding="10,4" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding AppVersion}" FontSize="{DynamicResource FontSize.Caption}"
+                               Foreground="{DynamicResource Brush.Text.Secondary}" />
+                  </Border>
                 </Grid>
-              </StackPanel>
-            </Border>
+              </Border>
+            </StackPanel>
           </StackPanel>
 
         </StackPanel>

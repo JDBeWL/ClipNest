@@ -26,7 +26,7 @@ public sealed class GalaxySnapshot
 public sealed class GalaxyCluster
 {
     public long Id { get; init; }              // 1..n，未分类最后。
-    public long? TagId { get; init; }          // 未分类为 null
+    public long? TagId { get; init; }          // 未分类为 null。
     public string TagPath { get; init; } = ""; // 供 #标签 搜索。
     public string Label { get; init; } = "";
     public string? Color { get; init; }

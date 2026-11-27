@@ -38,7 +38,8 @@ public sealed class GalaxyCanvas : Control
     private static Color TooltipTextColor => ThemeColors.TextPrimary;
     private static Color TooltipBackgroundColor => ThemeColors.SurfaceElevated;
     private static Color TooltipBorderColor => ThemeColors.BorderStrong;
-    private static readonly Typeface LabelTypeface = new(AppFonts.Ui);
+    private Typeface _labelTypeface = new(AppFonts.Ui);
+    private int _fontVersion = AppFonts.Version;
 
     public static readonly StyledProperty<IReadOnlyList<GalaxyNode>?> NodesProperty =
         AvaloniaProperty.Register<GalaxyCanvas, IReadOnlyList<GalaxyNode>?>(nameof(Nodes));
@@ -76,6 +77,7 @@ public sealed class GalaxyCanvas : Control
     private Point _zoomAnchor;
 
     private int _themeVersion = ThemeColors.Version;
+    private int _localeVersion = AppLocalization.Version;
     private IBrush _backgroundBrush = new SolidColorBrush(BackgroundColor);
     private IBrush _nodeBrush = new SolidColorBrush(NodeColor);
     private IBrush _starBrush = new SolidColorBrush(ThemeColors.Star);
@@ -222,9 +224,18 @@ public sealed class GalaxyCanvas : Control
         base.OnPropertyChanged(change);
     }
 
-    /// <summary>主题变化后重建缓存画刷。绘制前调用，开销只有一次版本比较。</summary>
+    /// <summary>主题、字体或语言变化后重建缓存画刷与文本缓存。绘制前调用，开销只有版本比较。</summary>
     private void EnsureThemeBrushes()
     {
+        if (_fontVersion != AppFonts.Version || _localeVersion != AppLocalization.Version)
+        {
+            _fontVersion = AppFonts.Version;
+            _localeVersion = AppLocalization.Version;
+            _labelTypeface = new Typeface(AppFonts.Ui);
+            _textCache.Clear();
+            _ratingTexts.Clear();
+        }
+
         if (_themeVersion == ThemeColors.Version) return;
         _themeVersion = ThemeColors.Version;
         _backgroundBrush = new SolidColorBrush(BackgroundColor);
@@ -341,7 +352,7 @@ public sealed class GalaxyCanvas : Control
             if (radius < 14) continue;
 
             var label = GetText(
-                $"{cluster.Label} · {cluster.AssetCount}", 12, _clusterLabelBrush);
+                $"{ClusterDisplayLabel(cluster)} · {cluster.AssetCount}", 12, _clusterLabelBrush);
             var rect = new Rect(
                 center.X - label.Width / 2 - 6,
                 center.Y + radius + 4,
@@ -519,11 +530,11 @@ public sealed class GalaxyCanvas : Control
         var clusters = Clusters;
         if (clusters is null) return;
 
-        var fontSize = 14 / Camera.Zoom;
+        var fontSize = AppFonts.GalaxyLabelSize / Camera.Zoom;
         var leader = new Pen(_labelBrush, 1 / Camera.Zoom);
         foreach (var cluster in clusters)
         {
-            var text = GetText($"{cluster.Label} · {cluster.AssetCount}", fontSize, _labelBrush);
+            var text = GetText($"{ClusterDisplayLabel(cluster)} · {cluster.AssetCount}", fontSize, _labelBrush);
             var bottom = cluster.CenterY - cluster.Radius - NodeHalf - 16 / Camera.Zoom;
             context.DrawLine(
                 leader,
@@ -559,7 +570,7 @@ public sealed class GalaxyCanvas : Control
             name = name[..40] + "…";
 
         var clusterName = _clustersById.TryGetValue(node.ClusterId, out var cluster)
-            ? cluster.Label
+            ? ClusterDisplayLabel(cluster)
             : "";
         var text = string.IsNullOrEmpty(clusterName) ? name : $"{name}\n{clusterName}";
         var formatted = GetText(text, 12, _tooltipBrush);
@@ -575,6 +586,9 @@ public sealed class GalaxyCanvas : Control
         context.DrawRectangle(_tooltipBackground, _tooltipBorder, box, 6, 6);
         context.DrawText(formatted, new Point(box.X + 8, box.Y + 6));
     }
+
+    private static string ClusterDisplayLabel(GalaxyCluster cluster) =>
+        cluster.TagId is null ? AppLocalization.Get("Galaxy.Uncategorized") : cluster.Label;
 
     // 交互。
 
@@ -1075,8 +1089,8 @@ public sealed class GalaxyCanvas : Control
 
     // 绘制工具。
 
-    private static FormattedText CreateText(string text, double fontSize, IBrush brush) =>
-        new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, LabelTypeface, fontSize, brush);
+    private FormattedText CreateText(string text, double fontSize, IBrush brush) =>
+        new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, _labelTypeface, fontSize, brush);
 
     /// <summary>
     /// 标签文本按「文字 + 半像素字号 + 画刷」缓存；缩放时字号连续变化，缓存设上限。

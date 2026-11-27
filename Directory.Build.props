@@ -1,11 +1,11 @@
 <Project>
   <PropertyGroup>
-    <!-- 发布脚本读取此版本号，同时写入程序集与安装包文件名。 -->
-    <Version>0.1.1</Version>
+    <!-- 从根目录 VERSION 读取版本号；命令行传入 -p:Version 时优先使用传入值。 -->
+    <Version Condition="'$(Version)' == '' and Exists('$(MSBuildThisFileDirectory)VERSION')">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)VERSION').Trim())</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <!-- 程序集与文件属性里的作者/版权信息。 -->
+    <!-- 程序集与文件属性里的作者与版权信息。 -->
     <Company>JDBeWL</Company>
     <Authors>JDBeWL</Authors>
     <Copyright>© 2026 JDBeWL</Copyright>

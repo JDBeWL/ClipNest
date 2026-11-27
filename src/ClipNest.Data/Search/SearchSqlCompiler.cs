@@ -133,7 +133,7 @@ public static class SearchSqlCompiler
                     "favorite" => "a.is_favorite = 1",
                     "missing" => "EXISTS (SELECT 1 FROM asset_files af2 WHERE af2.asset_id = a.id AND af2.file_state = 'missing')",
                     "untagged" => "NOT EXISTS (SELECT 1 FROM asset_tags at2 WHERE at2.asset_id = a.id)",
-                    _ => throw new SearchParseException($"未知 is 值: {field.Value}")
+                    _ => throw new SearchParseException($"未知 is 值：{field.Value}")
                 };
             case "ext":
                 var extParameter = $"v{counter++}";
@@ -144,7 +144,7 @@ public static class SearchSqlCompiler
                 parameters.Add(folderParameter, field.Value.TrimEnd('\\', '/') + "%");
                 return $"EXISTS (SELECT 1 FROM asset_files af4 WHERE af4.asset_id = a.id AND af4.path LIKE @{folderParameter})";
             default:
-                throw new SearchParseException($"未知字段: {field.Field}");
+                throw new SearchParseException($"未知字段：{field.Field}");
         }
     }
 
@@ -157,7 +157,7 @@ public static class SearchSqlCompiler
             "gte" => ">=",
             "lt" => "<",
             "lte" => "<=",
-            _ => throw new SearchParseException($"不支持的操作符: {field.Operator}")
+            _ => throw new SearchParseException($"不支持的操作符：{field.Operator}")
         };
         var parameter = $"v{counter++}";
         parameters.Add(parameter, field.Value);

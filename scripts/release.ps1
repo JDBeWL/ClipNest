@@ -17,12 +17,18 @@ $repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 
 if (-not $Version) {
+  $versionFile = Join-Path $repo 'VERSION'
+  if (Test-Path $versionFile) {
+    $Version = (Get-Content $versionFile -Raw).Trim()
+  }
+}
+if (-not $Version) {
   [xml]$props = Get-Content (Join-Path $repo 'Directory.Build.props')
   $versionNode = $props.SelectSingleNode('//Version')
   if ($versionNode) { $Version = $versionNode.InnerText.Trim() }
 }
 if (-not $Version) {
-  throw '未找到版本号；请在 Directory.Build.props 中设置 Version，或传入 -Version。'
+  throw '未找到版本号；请在根目录 VERSION 文件中设置，或传入 -Version。'
 }
 
 $artifacts = Join-Path $repo 'artifacts'

@@ -78,7 +78,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private LibraryCollection _activeCollection = LibraryCollection.All;
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private string _searchQueryLabel = "";
-    [ObservableProperty] private string _statusText = "就绪";
+    [ObservableProperty] private string _statusText = AppLocalization.Get("Common.Ready");
     [ObservableProperty] private string _runtimeWarning = "";
     [ObservableProperty] private AssetListItem? _selectedItem;
     [ObservableProperty] private string _newTag = "";
@@ -87,7 +87,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private Bitmap? _environmentBitmap;
     [ObservableProperty] private IReadOnlySet<long>? _highlightedIds;
     [ObservableProperty] private bool _semanticEnabled;
-    [ObservableProperty] private string _semanticStatus = "语义模型未安装";
+    [ObservableProperty] private string _semanticStatus = AppLocalization.Get("Semantic.NotInstalled");
     [ObservableProperty] private bool _isModelReady;
     [ObservableProperty] private bool _isModelDownloading;
     [ObservableProperty] private double _modelDownloadProgress;
@@ -112,6 +112,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _isSettingsOpen;
     [ObservableProperty] private SettingsPageSection _settingsSection = SettingsPageSection.Appearance;
     [ObservableProperty] private string _appearanceMode = AppearanceModes.System;
+    [ObservableProperty] private string _languageSelection = LanguageModes.System;
+    [ObservableProperty] private LanguageChoice? _selectedLanguageChoice;
+    [ObservableProperty] private string _fontFamilySelection = FontPresets.System;
+    [ObservableProperty] private string _fontScale = FontScales.Standard;
+    [ObservableProperty] private FontChoice? _selectedFontChoice;
     [ObservableProperty] private bool _autoTaggingEnabled = true;
     [ObservableProperty] private bool _autoIndexingEnabled = true;
     [ObservableProperty] private bool _isImporting;
@@ -119,8 +124,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private int _importTotal;
 
     public string ImportText => ImportTotal > 0
-        ? $"导入中 {ImportProcessed}/{ImportTotal}"
-        : "正在扫描文件夹…";
+        ? AppLocalization.Format("Status.Importing", ImportProcessed, ImportTotal)
+        : AppLocalization.Get("Status.ScanningFolder");
 
     public double ImportFraction => ImportTotal > 0 ? (double)ImportProcessed / ImportTotal : 0;
     public bool IsImportIndeterminate => ImportTotal <= 0;
@@ -136,6 +141,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public bool IsAppearanceDark => AppearanceMode == AppearanceModes.Dark;
     public bool IsAppearanceLight => AppearanceMode == AppearanceModes.Light;
     public bool IsAppearanceSystem => AppearanceMode == AppearanceModes.System;
+    public bool IsFontScaleCompact => FontScale == FontScales.Compact;
+    public bool IsFontScaleStandard => FontScale == FontScales.Standard;
+    public bool IsFontScaleComfortable => FontScale == FontScales.Comfortable;
+    public bool CanResetTypography =>
+        FontFamilySelection != FontPresets.System || FontScale != FontScales.Standard;
+    public ObservableCollection<LanguageChoice> AvailableLanguages { get; } = new();
+    public ObservableCollection<FontChoice> AvailableFonts { get; } = new();
     public bool HasRuntimeWarning => RuntimeWarning.Length > 0;
     public bool HasReadyTagModel => TagModels.Any(model => model.IsReady);
     public bool CanReidentifyTags => HasReadyTagModel && !IsReidentifying;
@@ -143,6 +155,17 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>线程数上限，取当前机器的逻辑核心数。</summary>
     public decimal MaxInferenceThreads => Environment.ProcessorCount;
+
+    public int InferenceThreadsValue => Math.Clamp(
+        (int)(InferenceThreads ?? ResolveInferenceThreads(0)), 1, Environment.ProcessorCount);
+
+    public string InferenceThreadsDisplay => InferenceThreadsValue.ToString();
+    public bool CanDecreaseInferenceThreads => InferenceThreadsValue > 1;
+    public bool CanIncreaseInferenceThreads => InferenceThreadsValue < Environment.ProcessorCount;
+
+    public bool HasAccelerationStatus => !string.IsNullOrWhiteSpace(AccelerationStatus);
+    public bool IsGpuAccelerationReady =>
+        AccelerationStatus.Contains("GPU", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>数据目录，用于设置页展示与打开。</summary>
     public string DataDirectory { get; }
@@ -216,14 +239,24 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Folders.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasFolders));
+            OnPropertyChanged(nameof(FolderCount));
             OnPropertyChanged(nameof(EmptyTitle));
             OnPropertyChanged(nameof(EmptyDescription));
         };
-        Tags.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasTags));
+        Tags.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasTags));
+            OnPropertyChanged(nameof(TagCount));
+        };
         FolderTagModels.CollectionChanged += (_, _) =>
             OnPropertyChanged(nameof(HasFolderTagModels));
         SelectedCharacters.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSelectedCharacters));
-        Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmpty));
+        Items.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(IsEmpty));
+            OnPropertyChanged(nameof(CurrentCollectionCount));
+            OnPropertyChanged(nameof(CurrentCollectionCountUnit));
+        };
 
         if (settings is not null)
         {
@@ -258,6 +291,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         // 直接写字段，避免构造期触发切换逻辑，因为此时窗口还没建好。
         _appearanceMode = AppearanceModes.Normalize(settings?.Settings.Appearance);
+        _languageSelection = LanguageModes.Normalize(settings?.Settings.Language);
+        _selectedLanguageChoice = LoadLanguageChoices(_languageSelection);
+        _fontFamilySelection = FontPresets.Normalize(settings?.Settings.FontFamily);
+        _fontScale = FontScales.Normalize(settings?.Settings.FontScale);
+        _selectedFontChoice = LoadFontChoices(_fontFamilySelection);
         _autoTaggingEnabled = settings?.Settings.AutoTaggingEnabled ?? true;
         _autoIndexingEnabled = settings?.Settings.AutoIndexingEnabled ?? true;
         DataDirectory = settings?.DataRoot ?? "";
@@ -265,9 +303,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // 只检查文件，不触发 ONNX 加载；缺少运行库时标注任务逐张失败，由队列继续轮询。
         if (!VcRuntimeProbe.IsAvailable())
         {
-            _runtimeWarning =
-                "AI 标注与语义搜索需要 Microsoft Visual C++ 运行库（x64）。"
-                + "浏览、导入与整理不受影响，安装后重启 ClipNest 即可启用 AI。";
+            _runtimeWarning = AppLocalization.Get("Runtime.MissingBody");
         }
 
         _ = RefreshSemanticStatusAsync();
@@ -290,6 +326,214 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAppearanceSystem));
     }
 
+    partial void OnSelectedLanguageChoiceChanged(LanguageChoice? value)
+    {
+        if (value is null) return;
+        if (string.Equals(LanguageSelection, value.Id, StringComparison.Ordinal)) return;
+        LanguageSelection = value.Id;
+    }
+
+    partial void OnLanguageSelectionChanged(string value)
+    {
+        var normalized = LanguageModes.Normalize(value);
+        if (!string.Equals(value, normalized, StringComparison.Ordinal))
+        {
+            LanguageSelection = normalized;
+            return;
+        }
+
+        if (_settings is not null)
+        {
+            _settings.Settings.Language = normalized;
+            _settings.Save();
+        }
+
+        if (Avalonia.Application.Current is App app)
+        {
+            app.ApplyLanguage(normalized, initiator: this);
+        }
+        else
+        {
+            AppLocalization.Apply(normalized);
+            if (AppFonts.CurrentSelection == FontPresets.System)
+                AppFonts.Apply(AppFonts.CurrentSelection, AppFonts.CurrentScale);
+        }
+
+        RefreshLocalizedTexts();
+
+        var matched = AvailableLanguages.FirstOrDefault(
+            choice => string.Equals(choice.Id, normalized, StringComparison.OrdinalIgnoreCase));
+        if (matched is not null && !ReferenceEquals(SelectedLanguageChoice, matched))
+            SelectedLanguageChoice = matched;
+    }
+
+    /// <summary>语言切换后就地刷新全部视图模型计算属性、下拉候选项与状态文案。</summary>
+    public void RefreshLocalizedTexts()
+    {
+        // 只原地更新已有选项的展示名，避免重建集合导致 ComboBox 丢失选中项。
+        AppLocalization.RefreshChoiceLabels(AvailableLanguages);
+        AppFonts.RefreshChoiceLabels(AvailableFonts);
+
+        if (_followDefaultModel is not null)
+        {
+            _followDefaultModel.DisplayName = AppLocalization.Get("Common.FollowDefault");
+        }
+
+        if (_tagCatalog is not null)
+        {
+            foreach (var option in TagModels)
+            {
+                var entry = _tagCatalog.Find(option.Id);
+                if (entry is null) continue;
+                option.DisplayName = ResolveTagModelDisplayName(entry.Definition);
+                option.Description = DescribeTagModel(entry.Definition);
+            }
+        }
+
+        RefreshTagModelRows();
+
+        if (!VcRuntimeProbe.IsAvailable())
+        {
+            RuntimeWarning = AppLocalization.Get("Runtime.MissingBody");
+        }
+
+        OnPropertyChanged(nameof(ImportText));
+        OnPropertyChanged(nameof(SearchHint));
+        OnPropertyChanged(nameof(SelectedDimensions));
+        OnPropertyChanged(nameof(SelectedDateText));
+        OnPropertyChanged(nameof(SelectedMeta));
+        OnPropertyChanged(nameof(InspectorHeaderTitle));
+        OnPropertyChanged(nameof(CurrentCollectionCountUnit));
+        OnPropertyChanged(nameof(CollectionTitle));
+        OnPropertyChanged(nameof(CollectionKind));
+        OnPropertyChanged(nameof(SelectionSummary));
+        OnPropertyChanged(nameof(SortLabel));
+        OnPropertyChanged(nameof(EmptyTitle));
+        OnPropertyChanged(nameof(EmptyDescription));
+        OnPropertyChanged(nameof(ViewHint));
+
+        if (!IsImporting)
+        {
+            if (IsGalaxy && (GalaxyClusters.Count > 0 || GalaxyNodes.Count > 0))
+            {
+                StatusText = AppLocalization.Format(
+                    "Status.GalaxySummary", GalaxyClusters.Count, GalaxyNodes.Count);
+            }
+            else if (ActiveCollection == LibraryCollection.Folder && SelectedFolder is { } folder)
+            {
+                StatusText = FormatFolderCount(folder.Name, Items.Count);
+            }
+            else if (ActiveCollection == LibraryCollection.Untagged)
+            {
+                StatusText = AppLocalization.Format("Status.UntaggedCount", Items.Count);
+            }
+            else if (ActiveCollection == LibraryCollection.Search)
+            {
+                StatusText = FormatSearchResultsCount(Items.Count);
+            }
+            else if (Items.Count > 0)
+            {
+                StatusText = FormatImageCount(Items.Count);
+            }
+            else
+            {
+                StatusText = AppLocalization.Get("Common.Ready");
+            }
+        }
+
+        _ = RefreshSemanticStatusAsync();
+        _ = RefreshTagModelStatusAsync();
+    }
+
+    private LanguageChoice? LoadLanguageChoices(string currentSelection)
+    {
+        AvailableLanguages.Clear();
+        foreach (var choice in AppLocalization.BuildChoices())
+        {
+            AvailableLanguages.Add(choice);
+        }
+
+        return AvailableLanguages.FirstOrDefault(
+                   choice => string.Equals(choice.Id, currentSelection, StringComparison.OrdinalIgnoreCase))
+               ?? AvailableLanguages.FirstOrDefault();
+    }
+
+    partial void OnSelectedFontChoiceChanged(FontChoice? value)
+    {
+        if (value is null) return;
+        if (string.Equals(FontFamilySelection, value.Id, StringComparison.Ordinal)) return;
+        FontFamilySelection = value.Id;
+    }
+
+    partial void OnFontFamilySelectionChanged(string value)
+    {
+        var normalized = FontPresets.Normalize(value);
+        if (!string.Equals(value, normalized, StringComparison.Ordinal))
+        {
+            FontFamilySelection = normalized;
+            return;
+        }
+
+        if (_settings is not null)
+        {
+            _settings.Settings.FontFamily = normalized;
+            _settings.Save();
+        }
+
+        ApplyTypographyChange(normalized, FontScale);
+
+        var matched = AvailableFonts.FirstOrDefault(
+            choice => string.Equals(choice.Id, normalized, StringComparison.OrdinalIgnoreCase));
+        if (matched is not null && !ReferenceEquals(SelectedFontChoice, matched))
+            SelectedFontChoice = matched;
+
+        OnPropertyChanged(nameof(CanResetTypography));
+    }
+
+    partial void OnFontScaleChanged(string value)
+    {
+        var normalized = FontScales.Normalize(value);
+        if (!string.Equals(value, normalized, StringComparison.Ordinal))
+        {
+            FontScale = normalized;
+            return;
+        }
+
+        if (_settings is not null)
+        {
+            _settings.Settings.FontScale = normalized;
+            _settings.Save();
+        }
+
+        ApplyTypographyChange(FontFamilySelection, normalized);
+
+        OnPropertyChanged(nameof(IsFontScaleCompact));
+        OnPropertyChanged(nameof(IsFontScaleStandard));
+        OnPropertyChanged(nameof(IsFontScaleComfortable));
+        OnPropertyChanged(nameof(CanResetTypography));
+    }
+
+    private FontChoice? LoadFontChoices(string currentSelection)
+    {
+        AvailableFonts.Clear();
+        foreach (var choice in AppFonts.DiscoverChoices(currentSelection))
+        {
+            AvailableFonts.Add(choice);
+        }
+
+        return AvailableFonts.FirstOrDefault(
+                   choice => string.Equals(choice.Id, currentSelection, StringComparison.OrdinalIgnoreCase))
+               ?? AvailableFonts.FirstOrDefault();
+    }
+
+    private static void ApplyTypographyChange(string fontFamily, string fontScale)
+    {
+        if (Avalonia.Application.Current is App app)
+            app.ApplyTypography(fontFamily, fontScale);
+        else
+            AppFonts.Apply(fontFamily, fontScale);
+    }
+
     partial void OnRuntimeWarningChanged(string value) =>
         OnPropertyChanged(nameof(HasRuntimeWarning));
 
@@ -301,6 +545,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     partial void OnIsReidentifyingChanged(bool value) =>
         OnPropertyChanged(nameof(CanReidentifyTags));
 
+    partial void OnAccelerationStatusChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasAccelerationStatus));
+        OnPropertyChanged(nameof(IsGpuAccelerationReady));
+    }
+
     /// <summary>0 表示自动，按核心数折半，与运行时的默认值一致。</summary>
     private static decimal ResolveInferenceThreads(int configured) =>
         configured > 0
@@ -309,6 +559,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     partial void OnInferenceThreadsChanged(decimal? value)
     {
+        OnPropertyChanged(nameof(InferenceThreadsValue));
+        OnPropertyChanged(nameof(InferenceThreadsDisplay));
+        OnPropertyChanged(nameof(CanDecreaseInferenceThreads));
+        OnPropertyChanged(nameof(CanIncreaseInferenceThreads));
+
         if (value is null) return;
 
         var threads = Math.Clamp((int)value.Value, 1, Environment.ProcessorCount);
@@ -322,6 +577,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         // 已有会话按旧线程数创建，释放后由下一张识别按新设置重建。
         _ = _tagQueue?.ReleaseSessionsAsync();
+    }
+
+    [RelayCommand]
+    private void DecreaseInferenceThreads()
+    {
+        if (InferenceThreadsValue > 1) InferenceThreads = InferenceThreadsValue - 1;
+    }
+
+    [RelayCommand]
+    private void IncreaseInferenceThreads()
+    {
+        if (InferenceThreadsValue < Environment.ProcessorCount)
+            InferenceThreads = InferenceThreadsValue + 1;
     }
 
     partial void OnAutoTaggingEnabledChanged(bool value)
@@ -364,10 +632,27 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void OpenSettings() => IsSettingsOpen = true;
 
     [RelayCommand]
+    private void OpenAiSettings()
+    {
+        SettingsSection = SettingsPageSection.Ai;
+        IsSettingsOpen = true;
+    }
+
+    [RelayCommand]
     private void CloseSettings() => IsSettingsOpen = false;
 
     [RelayCommand]
     private void SelectAppearance(string? mode) => AppearanceMode = AppearanceModes.Normalize(mode);
+
+    [RelayCommand]
+    private void SelectFontScale(string? scale) => FontScale = FontScales.Normalize(scale);
+
+    [RelayCommand]
+    private void ResetTypography()
+    {
+        FontFamilySelection = FontPresets.System;
+        FontScale = FontScales.Standard;
+    }
 
     [RelayCommand]
     private void SelectSettingsSection(string? name)
@@ -402,14 +687,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void BuildTagModelOptions(string? configuredModelId)
     {
         TagModels.Clear();
-        _followDefaultModel = new TagModelOption("", "跟随默认");
+        _followDefaultModel = new TagModelOption("", AppLocalization.Get("Common.FollowDefault"));
 
         if (_tagCatalog is not null)
         {
             foreach (var entry in _tagCatalog.Models)
             {
                 TagModels.Add(new TagModelOption(
-                    entry.Definition.Id, entry.Definition.DisplayName));
+                    entry.Definition.Id,
+                    ResolveTagModelDisplayName(entry.Definition),
+                    DescribeTagModel(entry.Definition)));
             }
         }
 
@@ -418,6 +705,27 @@ public sealed partial class MainWindowViewModel : ObservableObject
             ?? "";
         RefreshTagModelRows();
     }
+
+    /// <summary>解析模型在当前语言下的展示名；专有英文型号保持原名。</summary>
+    private static string ResolveTagModelDisplayName(TagModelDefinition definition) => definition.Id switch
+    {
+        "ram-plus-plus" => AppLocalization.Get("Model.Name.ram-plus-plus"),
+        "siglip2-base-patch16-224" => AppLocalization.Get("Model.Name.siglip2-base-patch16-224"),
+        _ => definition.DisplayName
+    };
+
+    /// <summary>按模型类型返回设置页展示的一行能力说明。</summary>
+    private static string DescribeTagModel(TagModelDefinition definition) => definition.Id switch
+    {
+        "camie-tagger-v2" => AppLocalization.Get("Model.Desc.camie-tagger-v2"),
+        "camie-tagger" => AppLocalization.Get("Model.Desc.camie-tagger"),
+        "wd-eva02-large-tagger-v3" => AppLocalization.Get("Model.Desc.wd-eva02-large-tagger-v3"),
+        "wd-swinv2-tagger-v3" => AppLocalization.Get("Model.Desc.wd-swinv2-tagger-v3"),
+        "cl-tagger-1-02" => AppLocalization.Get("Model.Desc.cl-tagger-1-02"),
+        "ram-plus-plus" => AppLocalization.Get("Model.Desc.ram-plus-plus"),
+        "siglip2-base-patch16-224" => AppLocalization.Get("Model.Desc.siglip2-base-patch16-224"),
+        _ => ""
+    };
 
     /// <summary>刷新每个模型的安装状态与默认标记。</summary>
     private void RefreshTagModelRows()
@@ -428,7 +736,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             option.IsReady = entry?.Manager.IsReady ?? false;
             if (!option.IsDownloading)
             {
-                option.Status = option.IsReady ? "已就绪" : "未安装";
+                option.Status = AppLocalization.Get(
+                    option.IsReady ? "Common.Installed" : "Common.NotInstalled");
             }
 
             option.IsDefault = string.Equals(option.Id, DefaultTagModelId, StringComparison.Ordinal);
@@ -442,7 +751,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void RebuildFolderTagModels()
     {
         FolderTagModels.Clear();
-        _followDefaultModel ??= new TagModelOption("", "跟随默认");
+        _followDefaultModel ??= new TagModelOption("", AppLocalization.Get("Common.FollowDefault"));
 
         var choices = new List<TagModelOption> { _followDefaultModel };
         choices.AddRange(TagModels);
@@ -453,11 +762,21 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>按当前语言格式化推理设备状态。</summary>
+    private static string FormatAccelerationStatus()
+    {
+        var device = OrtAccelerator.HasSession
+            ? AppLocalization.Get(
+                OrtAccelerator.Active == AcceleratorKind.DirectMl ? "Ai.Device.Gpu" : "Ai.Device.Cpu")
+            : AppLocalization.Get(OrtAccelerator.IsGpuAvailable ? "Ai.Device.GpuReady" : "Ai.Device.Cpu");
+        return AppLocalization.Format("Ai.DeviceStatus", device);
+    }
+
     /// <summary>刷新标注状态文字。默认模型缺失、未下载与运行中分别给出对应文案。</summary>
     public async Task RefreshTagModelStatusAsync()
     {
         // 会话创建后才能确定实际设备，未推理时显示当前能力。
-        AccelerationStatus = $"推理设备：{OrtAccelerator.Describe()}";
+        AccelerationStatus = FormatAccelerationStatus();
         RefreshTagModelRows();
 
         // 下载过程中保留文件与进度文案，等其他入口的刷新结束后再恢复覆盖率状态。
@@ -466,7 +785,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (_tagCatalog is null)
         {
             IsTagging = false;
-            TagModelStatus = "识别不可用";
+            TagModelStatus = AppLocalization.Get("Ai.Tagging.Unavailable");
             return;
         }
 
@@ -475,7 +794,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (!IsTagModelReady)
         {
             IsTagging = false;
-            TagModelStatus = $"{entry.Definition.DisplayName} 未安装";
+            TagModelStatus = AppLocalization.Format(
+                "Ai.Tagging.ModelNotInstalled", ResolveTagModelDisplayName(entry.Definition));
             return;
         }
 
@@ -486,7 +806,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (!AutoTaggingEnabled && !IsReidentifying)
         {
             IsTagging = false;
-            TagModelStatus = "识别已暂停";
+            TagModelStatus = AppLocalization.Get("Ai.Tagging.Paused");
             return;
         }
 
@@ -502,7 +822,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>识别状态文案，待处理时带上已识别数量。</summary>
     private static string FormatTaggingStatus(int done, int pending) =>
-        pending > 0 ? $"正在识别… 已识别 {done} / {done + pending}" : "识别就绪";
+        pending > 0
+            ? AppLocalization.Format("Ai.Tagging.Progress", done, done + pending)
+            : AppLocalization.Get("Ai.Tagging.Ready");
 
     private void OnTaggingProgressChanged(object? sender, TaggingProgress progress)
     {
@@ -511,7 +833,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             var wasReidentifying = IsReidentifying;
 
             // 首张推理结束后会话已创建，此时显示的才是实际设备。
-            AccelerationStatus = $"推理设备：{OrtAccelerator.Describe()}";
+            AccelerationStatus = FormatAccelerationStatus();
 
             // 下载期间保留文件与进度文案，队列的覆盖状态不能覆盖它。
             if (!IsTagModelDownloading && (AutoTaggingEnabled || wasReidentifying))
@@ -546,14 +868,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (_tagCatalog is null || !HasReadyTagModel || _tagQueue is null || IsReidentifying)
         {
-            if (!HasReadyTagModel) TagModelStatus = "请先下载识别模型";
+            if (!HasReadyTagModel) TagModelStatus = AppLocalization.Get("Ai.Tagging.NeedModel");
             return;
         }
 
         IsReidentifying = true;
-        TagModelStatus = "正在重置识别结果…";
-        StatusText = "正在重新识别标签…";
-        _completionStatusText = "重新识别完成";
+        TagModelStatus = AppLocalization.Get("Ai.Tagging.Resetting");
+        StatusText = AppLocalization.Get("Ai.Tagging.ReidentifyingStatus");
+        _completionStatusText = AppLocalization.Get("Ai.Tagging.ReidentifyDone");
         try
         {
             await _tagQueue.ReidentifyAllAsync();
@@ -565,7 +887,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             IsReidentifying = false;
             _completionStatusText = null;
-            TagModelStatus = $"重新识别失败：{ex.Message}";
+            TagModelStatus = AppLocalization.Format("Ai.Tagging.ReidentifyFailed", ex.Message);
         }
     }
 
@@ -578,13 +900,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var entry = _tagCatalog.Resolve(modelId);
         if (!entry.Manager.IsReady)
         {
-            StatusText = $"{entry.Definition.DisplayName} 未安装，无法重新分析";
+            StatusText = AppLocalization.Format(
+                "Ai.Tagging.CannotReanalyze", ResolveTagModelDisplayName(entry.Definition));
             return;
         }
 
         await _tagQueue.ReidentifyAssetAsync(item.Id);
-        _completionStatusText = "重新分析完成";
-        StatusText = $"正在重新分析 {item.FileName}";
+        _completionStatusText = AppLocalization.Get("Ai.Tagging.ReanalyzeDone");
+        StatusText = AppLocalization.Format("Ai.Tagging.ReanalyzingAsset", item.FileName);
     }
 
     /// <summary>重新分析指定文件夹的标签；使用该文件夹的模型。</summary>
@@ -593,15 +916,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (_tagQueue is null || _tagCatalog is null) return;
 
         var entry = _tagCatalog.Resolve(folder.TagModelId);
+        var displayName = ResolveTagModelDisplayName(entry.Definition);
         if (!entry.Manager.IsReady)
         {
-            StatusText = $"{entry.Definition.DisplayName} 未安装，无法重新分析";
+            StatusText = AppLocalization.Format("Ai.Tagging.CannotReanalyze", displayName);
             return;
         }
 
         await _tagQueue.ReidentifyFolderAsync(folder.Id);
-        _completionStatusText = "重新分析完成";
-        StatusText = $"正在按 {entry.Definition.DisplayName} 重新分析 {folder.Name}";
+        _completionStatusText = AppLocalization.Get("Ai.Tagging.ReanalyzeDone");
+        StatusText = AppLocalization.Format("Ai.Tagging.ReanalyzingFolder", displayName, folder.Name);
     }
 
     /// <summary>标注队列排空后的收尾，清理空标签并刷新侧栏与详情栏。</summary>
@@ -623,7 +947,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         catch (Exception ex)
         {
             _completionStatusText = null;
-            TagModelStatus = $"识别完成，但刷新标签失败：{ex.Message}";
+            TagModelStatus = AppLocalization.Format("Ai.Tagging.RefreshFailed", ex.Message);
         }
     }
 
@@ -653,13 +977,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             option.IsDownloading = true;
             option.Progress = 0;
-            option.Status = "准备下载…";
+            option.Status = AppLocalization.Get("Ai.Download.Preparing");
         }
 
         if (isDefault)
         {
             IsTagModelDownloading = true;
-            TagModelStatus = "准备下载识别模型…";
+            TagModelStatus = AppLocalization.Get("Ai.Download.PreparingTagModel");
         }
 
         using var cts = new CancellationTokenSource();
@@ -682,10 +1006,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 if (option is not null)
                 {
                     option.Progress = percent / 100.0;
-                    option.Status = $"下载 {fileLabel} {percent}%";
+                    option.Status = AppLocalization.Format("Ai.Download.Progress", fileLabel, percent);
                 }
 
-                if (isDefault) TagModelStatus = $"下载识别模型 {fileLabel} {percent}%";
+                if (isDefault)
+                    TagModelStatus = AppLocalization.Format("Ai.Download.TagModelProgress", fileLabel, percent);
             });
             await entry.Manager.DownloadAsync(progress, cts.Token);
             _tagQueue?.Signal();
@@ -693,8 +1018,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             failed = true;
-            if (option is not null) option.Status = "下载已取消";
-            if (isDefault) TagModelStatus = "下载已取消";
+            var cancelled = AppLocalization.Get("Ai.Download.Cancelled");
+            if (option is not null) option.Status = cancelled;
+            if (isDefault) TagModelStatus = cancelled;
         }
         catch (Exception ex)
         {
@@ -718,7 +1044,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var option = TagModels.FirstOrDefault(option =>
             string.Equals(option.Id, modelId, StringComparison.Ordinal));
-        if (option is not null) option.Status = "正在取消…";
+        if (option is not null) option.Status = AppLocalization.Get("Ai.Download.Cancelling");
         cts.Cancel();
     }
 
@@ -736,13 +1062,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"卸载失败：{ex.Message}";
+            StatusText = AppLocalization.Format("Ai.Uninstall.Failed", ex.Message);
             return;
         }
 
         await RefreshTagModelStatusAsync();
         _tagQueue?.Signal();
-        StatusText = $"{entry.Definition.DisplayName} 已卸载";
+        StatusText = AppLocalization.Format(
+            "Ai.Uninstall.Done", ResolveTagModelDisplayName(entry.Definition));
     }
 
     /// <summary>切换默认模型；各文件夹仍可单独指定。</summary>
@@ -762,7 +1089,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         await RefreshTagModelStatusAsync();
         _tagQueue?.Signal();
-        StatusText = $"默认识别模型已切换为 {_tagCatalog.Resolve(modelId).Definition.DisplayName}";
+        StatusText = AppLocalization.Format(
+            "Ai.DefaultSwitched", ResolveTagModelDisplayName(_tagCatalog.Resolve(modelId).Definition));
     }
 
     /// <summary>设置文件夹使用的模型；切换到已安装模型时清空该文件夹的旧结果并重跑。</summary>
@@ -782,11 +1110,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (resolved is not null && resolved.Manager.IsReady && _tagQueue is not null)
         {
             await _tagQueue.ReidentifyFolderAsync(folder.Id);
-            StatusText = $"{folder.Name} 将使用 {resolved.Definition.DisplayName} 重新识别";
+            StatusText = AppLocalization.Format(
+                "Ai.FolderModelReidentifying",
+                folder.Name,
+                ResolveTagModelDisplayName(resolved.Definition));
         }
         else
         {
-            StatusText = $"{folder.Name} 已切换模型，下载后开始识别";
+            StatusText = AppLocalization.Format("Ai.FolderModelPendingDownload", folder.Name);
         }
 
         // 设置页的下拉框与右键菜单共用同一份文件夹对象，就地同步选择即可，
@@ -826,15 +1157,35 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public bool HasSearchText => !string.IsNullOrWhiteSpace(SearchText);
 
     /// <summary>搜索框提示随语义开关变化，避免关闭语义后仍提示语义检索。</summary>
-    public string SearchHint => SemanticEnabled
-        ? "搜索文件名、标签或画面内容"
-        : "搜索文件名或标签";
+    public string SearchHint => AppLocalization.Get(
+        SemanticEnabled ? "Search.HintWithSemantic" : "Search.HintBasic");
 
     public string SelectedDimensions => SelectedItem is { Width: > 0, Height: > 0 } item
         ? $"{item.Width} × {item.Height}"
-        : "尺寸未知";
+        : AppLocalization.Get("Inspector.UnknownDimensions");
 
-    public string SelectedDateText => SelectedItem?.TakenAt?.ToString("yyyy-MM-dd HH:mm") ?? "时间未知";
+    public string SelectedExtension
+    {
+        get
+        {
+            var ext = Path.GetExtension(SelectedItem?.FileName);
+            return string.IsNullOrWhiteSpace(ext) ? "" : ext.TrimStart('.').ToUpperInvariant();
+        }
+    }
+
+    public bool HasSelectedExtension => SelectedExtension.Length > 0;
+
+    public string InspectorHeaderTitle => AppLocalization.Get(
+        HasSelection ? "Inspector.Title.Details" : "Inspector.Title.Overview");
+
+    public int FolderCount => Folders.Count;
+    public int TagCount => Tags.Count;
+    public int CurrentCollectionCount => Items.Count;
+    public string CurrentCollectionCountUnit => AppLocalization.Get(
+        Items.Count == 1 ? "Inspector.Overview.ImageUnitOne" : "Inspector.Overview.ImageUnitMany");
+
+    public string SelectedDateText => SelectedItem?.TakenAt?.ToString("yyyy-MM-dd HH:mm")
+        ?? AppLocalization.Get("Inspector.UnknownDate");
 
     public string SelectedMeta => $"{SelectedDimensions} · {SelectedDateText}";
 
@@ -844,28 +1195,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public string CollectionTitle => ActiveCollection switch
     {
-        LibraryCollection.Untagged => "未加标签",
-        LibraryCollection.Folder => SelectedFolder?.Name ?? "文件夹",
-        LibraryCollection.Search => "搜索结果",
-        _ => "全部图片"
+        LibraryCollection.Untagged => AppLocalization.Get("Collection.Untagged"),
+        LibraryCollection.Folder => SelectedFolder?.Name ?? AppLocalization.Get("Collection.FolderFallback"),
+        LibraryCollection.Search => AppLocalization.Get("Collection.SearchResults"),
+        _ => AppLocalization.Get("Collection.All")
     };
+
+    public bool ShowCollectionKind => ActiveCollection != LibraryCollection.All;
 
     public string CollectionKind => ActiveCollection switch
     {
-        LibraryCollection.Untagged => "智能筛选",
-        LibraryCollection.Folder => "文件夹",
-        LibraryCollection.Search => "检索",
-        _ => "图库"
+        LibraryCollection.Untagged => AppLocalization.Get("Collection.Kind.Untagged"),
+        LibraryCollection.Folder => AppLocalization.Get("Collection.Kind.Folder"),
+        LibraryCollection.Search => AppLocalization.Get("Collection.Kind.Search"),
+        _ => AppLocalization.Get("Collection.Kind.All")
     };
 
-    public string SelectionSummary => $"已选择 {SelectionCount} 张";
+    public string SelectionSummary => AppLocalization.Format("Selection.Summary", SelectionCount);
 
     public string SortLabel => SortMode switch
     {
-        "taken" => "拍摄时间",
-        "name" => "文件名",
-        "rating" => "评分",
-        _ => "默认排序"
+        "taken" => AppLocalization.Get("Sort.Taken"),
+        "name" => AppLocalization.Get("Sort.Name"),
+        "rating" => AppLocalization.Get("Sort.Rating"),
+        _ => AppLocalization.Get("Sort.Default")
     };
 
     public bool IsSortDefault => SortMode == "default";
@@ -873,28 +1226,44 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public bool IsSortName => SortMode == "name";
     public bool IsSortRating => SortMode == "rating";
 
-    public string EmptyTitle => IsSearchActive
-        ? "没有找到匹配的图片"
-        : ActiveCollection == LibraryCollection.Untagged && HasFolders
-            ? "所有图片都已加上标签"
-            : HasFolders
-                ? "这里还没有图片"
-                : "把图片收进 ClipNest";
+    public string EmptyTitle => AppLocalization.Get(
+        IsSearchActive
+            ? "Empty.Search.Title"
+            : ActiveCollection == LibraryCollection.Untagged && HasFolders
+                ? "Empty.Untagged.Title"
+                : HasFolders
+                    ? "Empty.Folder.Title"
+                    : "Empty.Library.Title");
 
-    public string EmptyDescription => IsSearchActive
-        ? "试试更短的关键词，或使用 #标签、folder: 路径来筛选。"
-        : ActiveCollection == LibraryCollection.Untagged && HasFolders
-            ? "继续保持，或者切换到全部图片继续整理。"
-            : HasFolders
-                ? "给文件夹补充图片后点击刷新，新图片会自动建立索引。"
-                : "导入一个文件夹，ClipNest 会生成缩略图并在本地完成索引。";
+    public string EmptyDescription => AppLocalization.Get(
+        IsSearchActive
+            ? "Empty.Search.Desc"
+            : ActiveCollection == LibraryCollection.Untagged && HasFolders
+                ? "Empty.Untagged.Desc"
+                : HasFolders
+                    ? "Empty.Folder.Desc"
+                    : "Empty.Library.Desc");
 
     public string ViewHint => CurrentView switch
     {
-        ViewMode.LightWall => "悬停聚焦 · 双击打开",
-        ViewMode.Galaxy => "拖拽平移 · 滚轮缩放 · 双击打开",
-        _ => "双击打开 · Ctrl 多选 · 方向键浏览"
+        ViewMode.LightWall => AppLocalization.Get("View.Hint.Wall"),
+        ViewMode.Galaxy => AppLocalization.Get("View.Hint.Galaxy"),
+        _ => AppLocalization.Get("View.Hint.Grid")
     };
+
+    private static string FormatImageCount(int count) =>
+        AppLocalization.FormatCount("Status.ImageCountOne", "Status.ImageCount", count);
+
+    private static string FormatSearchResultsCount(int count) =>
+        AppLocalization.FormatCount("Status.SearchResultsOne", "Status.SearchResults", count);
+
+    private static string FormatFolderCount(string folderName, int count) => count == 1
+        ? AppLocalization.Format("Status.FolderCountOne", folderName)
+        : AppLocalization.Format("Status.FolderCount", folderName, count);
+
+    private static string FormatRefreshedFolderCount(string folderName, int count) => count == 1
+        ? AppLocalization.Format("Status.RefreshedOneCountOne", folderName)
+        : AppLocalization.Format("Status.RefreshedOneCount", folderName, count);
 
     partial void OnCurrentViewChanged(ViewMode value)
     {
@@ -916,7 +1285,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         else if (Items.Count > 0)
         {
-            StatusText = $"{Items.Count} 张图片";
+            StatusText = FormatImageCount(Items.Count);
         }
     }
 
@@ -928,6 +1297,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSemanticResult));
         OnPropertyChanged(nameof(CollectionTitle));
         OnPropertyChanged(nameof(CollectionKind));
+        OnPropertyChanged(nameof(ShowCollectionKind));
         OnPropertyChanged(nameof(EmptyTitle));
         OnPropertyChanged(nameof(EmptyDescription));
     }
@@ -1146,7 +1516,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (!IsModelReady)
         {
-            SemanticStatus = "语义模型未安装，请先下载";
+            SemanticStatus = AppLocalization.Get("Semantic.NotInstalledPrompt");
             return;
         }
 
@@ -1160,14 +1530,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (_models is null)
         {
-            SemanticStatus = "语义不可用";
+            SemanticStatus = AppLocalization.Get("Semantic.Unavailable");
             return;
         }
 
         IsModelReady = _models.IsReady;
         if (!IsModelReady)
         {
-            SemanticStatus = "语义模型未安装";
+            SemanticStatus = AppLocalization.Get("Semantic.NotInstalled");
             return;
         }
 
@@ -1176,14 +1546,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var stats = await _embeddingQueue.GetStatsAsync();
         if (!AutoIndexingEnabled)
         {
-            SemanticStatus = $"语义已暂停 · {stats.Ready} 张";
+            SemanticStatus = AppLocalization.Format("Semantic.Paused", stats.Ready);
             return;
         }
 
         var total = stats.Ready + stats.Pending + stats.Error;
         SemanticStatus = stats.Pending > 0
-            ? $"语义索引 {stats.Ready}/{total}"
-            : $"语义就绪 · {stats.Ready} 张";
+            ? AppLocalization.Format("Semantic.Indexing", stats.Ready, total)
+            : AppLocalization.Format("Semantic.Ready", stats.Ready);
     }
 
     private void OnEmbeddingProgressChanged(object? sender, EmbeddingProgress progress)
@@ -1194,8 +1564,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             {
                 var total = progress.Ready + progress.Pending + progress.Error;
                 SemanticStatus = progress.Pending > 0
-                    ? $"语义索引 {progress.Ready}/{total}"
-                    : $"语义就绪 · {progress.Ready} 张";
+                    ? AppLocalization.Format("Semantic.Indexing", progress.Ready, total)
+                    : AppLocalization.Format("Semantic.Ready", progress.Ready);
             }
 
             // 索引刚完成时若在星系视图，重新计算布局。
@@ -1222,7 +1592,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
                 ModelDownloadProgress = p.Total > 0 ? (double)p.Downloaded / p.Total : 0;
                 var percent = (int)(ModelDownloadProgress * 100);
-                SemanticStatus = $"下载 {Path.GetFileName(p.FileName)} {percent}%";
+                SemanticStatus = AppLocalization.Format(
+                    "Ai.Download.Progress", Path.GetFileName(p.FileName), percent);
             });
 
             await _models.DownloadAsync(progress, cts.Token);
@@ -1238,11 +1609,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            SemanticStatus = "下载已取消";
+            SemanticStatus = AppLocalization.Get("Ai.Download.Cancelled");
         }
         catch (Exception ex)
         {
-            SemanticStatus = $"模型下载失败：{ex.Message}";
+            SemanticStatus = AppLocalization.Format("Ai.Download.Failed", ex.Message);
         }
         finally
         {
@@ -1256,7 +1627,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public void CancelSemanticModelDownload()
     {
         if (_semanticModelDownload is null) return;
-        SemanticStatus = "正在取消…";
+        SemanticStatus = AppLocalization.Get("Ai.Download.Cancelling");
         _semanticModelDownload.Cancel();
     }
 
@@ -1273,13 +1644,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"卸载失败：{ex.Message}";
+            StatusText = AppLocalization.Format("Ai.Uninstall.Failed", ex.Message);
             return;
         }
 
         IsModelReady = false;
         await RefreshSemanticStatusAsync();
-        StatusText = "语义模型已卸载";
+        StatusText = AppLocalization.Get("Semantic.Uninstalled");
     }
 
     [RelayCommand] private void ShowWall() => CurrentView = ViewMode.LightWall;
@@ -1295,7 +1666,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (!await ReplaceItemsAsync(items, token)) return;
         TotalCount = items.Count;
         HighlightedIds = null;
-        StatusText = $"{items.Count} 张图片";
+        StatusText = FormatImageCount(items.Count);
     }
 
     /// <summary>读取星系快照并计算布局，填充簇与节点集合。</summary>
@@ -1311,7 +1682,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"星系布局失败：{ex.Message}";
+            StatusText = AppLocalization.Format("Status.GalaxyFailed", ex.Message);
             return;
         }
 
@@ -1321,7 +1692,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         foreach (var node in result.Nodes) GalaxyNodes.Add(node);
 
         if (IsGalaxy)
-            StatusText = $"{GalaxyClusters.Count} 个簇 · {GalaxyNodes.Count} 张";
+            StatusText = AppLocalization.Format(
+                "Status.GalaxySummary", GalaxyClusters.Count, GalaxyNodes.Count);
     }
 
     /// <summary>点击簇时，未分类簇显示全部，其余按标签路径搜索。</summary>
@@ -1362,7 +1734,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             var items = await _search.SearchAsync("is:untagged", NoLimit);
             if (token != _collectionToken) return;
             if (!await ReplaceItemsAsync(items, token)) return;
-            StatusText = $"{items.Count} 张未加标签";
+            StatusText = AppLocalization.Format("Status.UntaggedCount", items.Count);
         }
         catch (Exception ex)
         {
@@ -1410,7 +1782,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (token != _collectionToken) return;
             if (!await ReplaceItemsAsync(items, token)) return;
             HighlightedIds = Items.Select(item => item.Id).ToHashSet();
-            StatusText = $"{Items.Count} 个结果";
+            StatusText = FormatSearchResultsCount(Items.Count);
         }
         catch (Exception ex)
         {
@@ -1418,7 +1790,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             // 出错时结果不再标记为按相关度排序。
             _lastSearchWasSemantic = false;
             OnPropertyChanged(nameof(IsSemanticResult));
-            StatusText = ex.Message;
+            StatusText = !IsModelReady && ex.Message.Contains("模型未安装", StringComparison.Ordinal)
+                ? AppLocalization.Get("Semantic.NotInstalledPrompt")
+                : ex.Message;
         }
     }
 
@@ -1514,7 +1888,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (token != _collectionToken) return;
             if (!await ReplaceItemsAsync(items, token)) return;
             HighlightedIds = Items.Select(item => item.Id).ToHashSet();
-            StatusText = $"{folder.Name}：{Items.Count} 张";
+            StatusText = FormatFolderCount(folder.Name, Items.Count);
         }
         catch (Exception ex)
         {
@@ -1529,7 +1903,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IsImporting = true;
         ImportProcessed = 0;
         ImportTotal = 0;
-        StatusText = "扫描中…";
+        StatusText = AppLocalization.Get("Status.Scanning");
         try
         {
             var progress = new Progress<ScanProgress>(p =>
@@ -1548,7 +1922,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 await LoadAsync();
 
             if (CurrentView == ViewMode.Galaxy) await LoadGalaxyAsync();
-            StatusText = $"已添加文件夹，{added} 个新文件";
+            StatusText = AppLocalization.FormatCount("Status.FolderAddedOne", "Status.FolderAdded", added);
             _embeddingQueue?.Signal();
             _tagQueue?.Signal();
             await RefreshSemanticStatusAsync();
@@ -1566,7 +1940,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var folders = Folders.ToList();
         for (var i = 0; i < folders.Count; i++)
         {
-            StatusText = $"刷新中 {i + 1}/{folders.Count}：{folders[i].Name}";
+            StatusText = AppLocalization.Format(
+                "Status.RefreshingAll", i + 1, folders.Count, folders[i].Name);
             await _scanner.ScanAsync(folders[i].Path);
         }
 
@@ -1577,7 +1952,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         else
             await LoadAsync();
         if (CurrentView == ViewMode.Galaxy) await LoadGalaxyAsync();
-        StatusText = $"已刷新 {folders.Count} 个文件夹";
+        StatusText = AppLocalization.FormatCount("Status.RefreshedAllOne", "Status.RefreshedAll", folders.Count);
         _embeddingQueue?.Signal();
         _tagQueue?.Signal();
         await RefreshSemanticStatusAsync();
@@ -1586,7 +1961,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public async Task RefreshFolderAsync(Folder folder)
     {
         if (_scanner is null) return;
-        StatusText = $"正在刷新 {folder.Name}…";
+        StatusText = AppLocalization.Format("Status.RefreshingOne", folder.Name);
         await _scanner.ScanAsync(folder.Path);
         await LoadFoldersAsync();
         if (CurrentView == ViewMode.Galaxy) await LoadGalaxyAsync();
@@ -1595,12 +1970,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (selected is not null && selected.Id == folder.Id)
         {
             await FilterByFolderAsync(selected);
-            StatusText = $"已刷新 {selected.Name}：{Items.Count} 张";
+            StatusText = FormatRefreshedFolderCount(selected.Name, Items.Count);
         }
         else
         {
             await LoadAsync();
-            StatusText = $"已刷新 {folder.Name}";
+            StatusText = AppLocalization.Format("Status.RefreshedOne", folder.Name);
         }
 
         _embeddingQueue?.Signal();
@@ -1627,7 +2002,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         await LoadAsync();
         ActiveCollection = LibraryCollection.All;
         if (CurrentView == ViewMode.Galaxy) await LoadGalaxyAsync();
-        StatusText = $"已移除 {folder.Name}（未删除磁盘文件）";
+        StatusText = AppLocalization.Format("Status.FolderRemoved", folder.Name);
         _embeddingQueue?.Signal();
         _tagQueue?.Signal();
         await RefreshSemanticStatusAsync();
@@ -1644,8 +2019,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (_operations is null || items.Count == 0) return BatchOutcome.None;
 
         StatusText = mode == FileTransferMode.Move
-            ? $"正在移动 {items.Count} 张…"
-            : $"正在复制 {items.Count} 张…";
+            ? AppLocalization.FormatCount("Status.MovingOne", "Status.Moving", items.Count)
+            : AppLocalization.FormatCount("Status.CopyingOne", "Status.Copying", items.Count);
 
         BatchOutcome outcome;
         try
@@ -1657,18 +2032,23 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"操作失败：{ex.Message}";
+            StatusText = AppLocalization.Format("Status.OperationFailed", ex.Message);
             return BatchOutcome.None;
         }
 
-        var action = mode == FileTransferMode.Move ? "移动" : "复制";
         var folderName = FolderNameOf(targetFolder);
-        var failure = outcome.HasErrors ? $"，{outcome.Errors.Count} 张失败" : "";
+        var failure = outcome.HasErrors
+            ? AppLocalization.Format("Status.FailedSuffix", outcome.Errors.Count)
+            : "";
         StatusText = outcome.Succeeded > 0
-            ? $"已{action} {outcome.Succeeded} 张到「{folderName}」{failure}"
+            ? AppLocalization.Format(
+                mode == FileTransferMode.Move ? "Status.MovedTo" : "Status.CopiedTo",
+                outcome.Succeeded,
+                folderName,
+                failure)
             : outcome.HasErrors
                 ? outcome.Errors[0]
-                : $"选中的图片已经在「{folderName}」中";
+                : AppLocalization.Format("Status.AlreadyInFolder", folderName);
         return outcome;
     }
 
@@ -1677,7 +2057,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (_operations is null || items.Count == 0) return BatchOutcome.None;
 
-        StatusText = $"正在删除 {items.Count} 张…";
+        StatusText = AppLocalization.FormatCount("Status.DeletingOne", "Status.Deleting", items.Count);
 
         BatchOutcome outcome;
         try
@@ -1690,14 +2070,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"删除失败：{ex.Message}";
+            StatusText = AppLocalization.Format("Status.DeleteFailed", ex.Message);
             return BatchOutcome.None;
         }
 
-        var failure = outcome.HasErrors ? $"，{outcome.Errors.Count} 张未删除" : "";
+        var failure = outcome.HasErrors
+            ? AppLocalization.Format("Status.NotDeletedSuffix", outcome.Errors.Count)
+            : "";
         StatusText = outcome.Succeeded > 0
-            ? $"已删除 {outcome.Succeeded} 张，可在回收站还原{failure}"
-            : outcome.Errors.FirstOrDefault() ?? "没有可删除的图片";
+            ? AppLocalization.Format("Status.Deleted", outcome.Succeeded, failure)
+            : outcome.Errors.FirstOrDefault() ?? AppLocalization.Get("Status.NothingToDelete");
         return outcome;
     }
 
@@ -1759,7 +2141,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     partial void OnSelectedItemChanged(AssetListItem? value)
     {
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(InspectorHeaderTitle));
         OnPropertyChanged(nameof(SelectedDimensions));
+        OnPropertyChanged(nameof(SelectedExtension));
+        OnPropertyChanged(nameof(HasSelectedExtension));
         OnPropertyChanged(nameof(SelectedDateText));
         OnPropertyChanged(nameof(SelectedMeta));
         OnPropertyChanged(nameof(SelectedLocation));
@@ -1842,8 +2227,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         await LoadSelectedTagsAsync();
         await LoadTagsAsync();
         StatusText = targets.Count > 1
-            ? $"已为 {targets.Count} 张图片添加标签"
-            : "已添加标签";
+            ? AppLocalization.Format("Status.AddedTagMany", targets.Count)
+            : AppLocalization.Get("Status.AddedTag");
     }
 
     public async Task RemoveTagAsync(Tag tag)
@@ -1892,7 +2277,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void BeginEditCharacters()
     {
-        CharacterDraft = string.Join("，", SelectedCharacters.Select(tag => tag.Name));
+        var separator = AppLocalization.CurrentCultureCode == LanguageModes.EnUs ? ", " : "，";
+        CharacterDraft = string.Join(separator, SelectedCharacters.Select(tag => tag.Name));
         IsEditingCharacters = true;
     }
 
@@ -1920,8 +2306,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             await LoadSelectedTagsAsync();
             await LoadTagsAsync();
             StatusText = names.Count == 0
-                ? $"已清除 {targets.Count} 张图片的角色"
-                : $"已更新 {targets.Count} 张图片的角色";
+                ? AppLocalization.FormatCount("Status.ClearedCharactersOne", "Status.ClearedCharacters", targets.Count)
+                : AppLocalization.FormatCount("Status.UpdatedCharactersOne", "Status.UpdatedCharacters", targets.Count);
         }
         catch (Exception ex)
         {
@@ -1963,8 +2349,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             await LoadSelectedTagsAsync();
             await LoadTagsAsync();
             StatusText = name.Length == 0
-                ? $"已清除 {targets.Count} 张图片的作品"
-                : $"已更新 {targets.Count} 张图片的作品";
+                ? AppLocalization.FormatCount("Status.ClearedSeriesOne", "Status.ClearedSeries", targets.Count)
+                : AppLocalization.FormatCount("Status.UpdatedSeriesOne", "Status.UpdatedSeries", targets.Count);
         }
         catch (Exception ex)
         {
@@ -1999,7 +2385,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         // 预览框约 200×200 逻辑像素，按 2 倍屏取图；长图按自身比例换算长边，
-        // 否则短边只有几十像素，铺满 200 像素宽的框时会明显发虚。
+        // 否则短边只有几十像素，铺满 200 像素宽的框时会明显模糊。
         var ratio = item is { Width: > 0, Height: > 0 }
             ? item.Width.Value / (double)item.Height.Value
             : (double?)null;

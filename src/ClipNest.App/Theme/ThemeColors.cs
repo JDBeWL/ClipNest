@@ -50,6 +50,7 @@ public static class ThemeColors
     public static Color SurfaceShell => Pick(AppPalette.SurfaceShell, AppPaletteLight.SurfaceShell);
     public static Color SurfaceGlass => Pick(AppPalette.SurfaceGlass, AppPaletteLight.SurfaceGlass);
     public static Color SurfaceNavigation => Pick(AppPalette.SurfaceNavigation, AppPaletteLight.SurfaceNavigation);
+    public static Color SurfaceInspector => Pick(AppPalette.SurfaceInspector, AppPaletteLight.SurfaceInspector);
     public static Color SurfaceStatusBar => Pick(AppPalette.SurfaceStatusBar, AppPaletteLight.SurfaceStatusBar);
     public static Color SurfaceElevated => Pick(AppPalette.SurfaceElevated, AppPaletteLight.SurfaceElevated);
     public static Color SurfaceCard => Pick(AppPalette.SurfaceCard, AppPaletteLight.SurfaceCard);
@@ -87,6 +88,8 @@ public static class ThemeColors
     public static Color SelectionFill => Pick(AppPalette.SelectionFill, AppPaletteLight.SelectionFill);
     public static Color SelectionOuter => Pick(AppPalette.SelectionOuter, AppPaletteLight.SelectionOuter);
     public static Color HoverOutline => Pick(AppPalette.HoverOutline, AppPaletteLight.HoverOutline);
+    public static Color TileRim => Pick(AppPalette.TileRim, AppPaletteLight.TileRim);
+    public static Color OverlayButtonRim => Pick(AppPalette.OverlayButtonRim, AppPaletteLight.OverlayButtonRim);
     public static Color Scrim => Pick(AppPalette.Scrim, AppPaletteLight.Scrim);
     public static Color TileScrim => Pick(AppPalette.TileScrim, AppPaletteLight.TileScrim);
     public static Color FadeClear => Pick(AppPalette.FadeClear, AppPaletteLight.FadeClear);

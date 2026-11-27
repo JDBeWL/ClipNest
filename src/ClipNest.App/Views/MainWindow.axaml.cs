@@ -19,7 +19,6 @@ public partial class MainWindow : Window
 {
     // 搜索框聚焦时的高亮边，跟随当前主题取色，浅色下强调色更饱和。
     private static IBrush AccentBorder => new SolidColorBrush(ThemeColors.Accent);
-    private static IBrush NormalBorder => new SolidColorBrush(ThemeColors.BorderSubtle);
 
     private readonly IThumbnailProvider _thumbnails;
     private readonly MainWindowViewModel _vm;
@@ -76,8 +75,8 @@ public partial class MainWindow : Window
 
             if (e.PropertyName == nameof(MainWindowViewModel.IsSettingsOpen))
             {
-                // 等 IsVisible 绑定生效后再聚焦，否则焦点仍留在被遮住的搜索框里，
-                // 它会在隧道阶段吞掉 Esc。
+                // 等 IsVisible 绑定生效后再聚焦，否则焦点仍留在底层隐藏的搜索框中，
+                // 会在隧道阶段拦截 Esc。
                 if (vm.IsSettingsOpen)
                     Dispatcher.UIThread.Post(() => SettingsPage.FocusInitial(), DispatcherPriority.Loaded);
                 else
@@ -96,7 +95,7 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
 
-        // TextBox 会先吞掉 Enter，用隧道阶段提前接管搜索与编辑快捷键。
+        // TextBox 会在冒泡阶段消费 Enter，通过隧道阶段提前接管搜索与编辑快捷键。
         SearchBox.AddHandler(KeyDownEvent, SearchBox_KeyDown, RoutingStrategies.Tunnel);
         CharacterEditBox.AddHandler(KeyDownEvent, CharacterEditBox_KeyDown, RoutingStrategies.Tunnel);
         SeriesEditBox.AddHandler(KeyDownEvent, SeriesEditBox_KeyDown, RoutingStrategies.Tunnel);
@@ -234,7 +233,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 没有记录时交给系统按工作区居中，不再落到层叠摆放的位置上。
+        // 没有记录时交给系统按工作区居中，避免落在层叠摆放的位置上。
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
     }
 
@@ -257,7 +256,8 @@ public partial class MainWindow : Window
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         if (e.Source is Visual source &&
-            source.FindAncestorOfType<Button>(includeSelf: true) is not null) return;
+            (source.FindAncestorOfType<Button>(includeSelf: true) is not null ||
+             source.FindAncestorOfType<TextBox>(includeSelf: true) is not null)) return;
 
         if (e.ClickCount == 2)
         {
@@ -290,9 +290,12 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _vm.StatusText = $"无法打开下载页：{ex.Message}";
+            _vm.StatusText = AppLocalization.Format("Runtime.OpenDownloadFailed", ex.Message);
         }
     }
+
+    /// <summary>语言切换后同步更新窗框按钮的悬停提示。</summary>
+    public void RefreshLocalizedChrome() => SyncWindowState();
 
     private void ToggleMaximize() => WindowChrome.ToggleMaximize(this);
 
@@ -301,7 +304,9 @@ public partial class MainWindow : Window
         var maximized = WindowState == WindowState.Maximized;
         MaximizeIcon.IsVisible = !maximized;
         RestoreIcon.IsVisible = maximized;
-        ToolTip.SetTip(MaxRestoreButton, maximized ? "还原" : "最大化");
+        ToolTip.SetTip(
+            MaxRestoreButton,
+            AppLocalization.Get(maximized ? "Common.Restore" : "Common.Maximize"));
         RootLayout.Margin = WindowChrome.GetMaximizedInset(this);
         if (WindowState == WindowState.Normal) WindowChrome.EnsureVisible(this);
     }
@@ -318,8 +323,8 @@ public partial class MainWindow : Window
             index = 0;
         }
 
-        // 独立窗口。不再作为模态子窗，查看器可以有任务栏按钮，也可以被主窗遮住。
-        // 已经开着就换图并置于前面，避免连续双击打开多个窗口。
+        // 独立非模态窗口，拥有独立任务栏按钮并可置于主窗后方。
+        // 已经打开时直接切换图片并置顶，避免连续双击打开多个窗口。
         if (_viewer is { } existing)
         {
             existing.ShowItem(items, index);
@@ -340,7 +345,7 @@ public partial class MainWindow : Window
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             AllowMultiple = false,
-            Title = "选择图片文件夹"
+            Title = AppLocalization.Get("Picker.ImportFolder")
         });
         var path = folders.FirstOrDefault()?.TryGetLocalPath();
         if (path is not null && Vm is { } vm)
@@ -369,13 +374,13 @@ public partial class MainWindow : Window
         // 与图片右键一致使用 ContextMenu，共用同一套弹层样式。
         var menu = new ContextMenu();
 
-        var reanalyze = new MenuItem { Header = "重新分析标签" };
+        var reanalyze = new MenuItem { Header = AppLocalization.Get("Menu.ReanalyzeTags") };
         reanalyze.Click += async (_, _) => await ConfirmReanalyzeFolderAsync(folder);
         menu.Items.Add(reanalyze);
         menu.Items.Add(new Separator());
 
-        var modelMenu = new MenuItem { Header = "识别模型" };
-        AddFolderModelItem(modelMenu, folder, "", "跟随默认");
+        var modelMenu = new MenuItem { Header = AppLocalization.Get("Menu.TagModel") };
+        AddFolderModelItem(modelMenu, folder, "", AppLocalization.Get("Common.FollowDefault"));
         foreach (var option in _vm.TagModels)
         {
             AddFolderModelItem(modelMenu, folder, option.Id, option.DisplayName);
@@ -390,10 +395,10 @@ public partial class MainWindow : Window
     {
         var confirmed = await ConfirmWindow.AskAsync(
             this,
-            "重新分析标签",
-            $"将重新识别「{item.FileName}」的角色、作品与特征。",
-            "角色与作品会按模型结论重建，手动添加的其他标签保留。",
-            "开始识别");
+            AppLocalization.Get("Confirm.Reanalyze.Title"),
+            AppLocalization.Format("Confirm.ReanalyzeAsset.Message", item.FileName),
+            AppLocalization.Get("Confirm.ReanalyzeAsset.Detail"),
+            AppLocalization.Get("Confirm.StartTagging"));
         if (confirmed) await _vm.ReanalyzeAssetAsync(item);
     }
 
@@ -401,10 +406,10 @@ public partial class MainWindow : Window
     {
         var confirmed = await ConfirmWindow.AskAsync(
             this,
-            "重新分析标签",
-            $"将清除「{folder.Name}」现有的 AI 标签并重新识别。",
-            "角色与作品会按模型结论重建，手动添加的其他标签保留。识别在后台进行，期间可以继续浏览图片。",
-            "开始识别");
+            AppLocalization.Get("Confirm.Reanalyze.Title"),
+            AppLocalization.Format("Confirm.ReanalyzeFolder.Message", folder.Name),
+            AppLocalization.Get("Confirm.ReanalyzeBatch.Detail"),
+            AppLocalization.Get("Confirm.StartTagging"));
         if (confirmed) await _vm.ReanalyzeFolderAsync(folder);
     }
 
@@ -468,7 +473,7 @@ public partial class MainWindow : Window
         => SearchShell.BorderBrush = AccentBorder;
 
     private void SearchBox_LostFocus(object? sender, RoutedEventArgs e)
-        => SearchShell.BorderBrush = NormalBorder;
+        => SearchShell.ClearValue(Border.BorderBrushProperty);
 
     private void CharacterEditBox_KeyDown(object? sender, KeyEventArgs e)
     {
@@ -533,7 +538,7 @@ public partial class MainWindow : Window
 
         if (!ExplorerReveal.Reveal(path) && Vm is { } vm)
         {
-            vm.StatusText = "无法打开资源管理器";
+            vm.StatusText = AppLocalization.Get("Status.CannotOpenExplorer");
         }
     }
 
@@ -543,10 +548,10 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(path) || Clipboard is null) return;
 
         await Clipboard.SetTextAsync(path);
-        if (Vm is { } vm) vm.StatusText = "已复制文件路径";
+        if (Vm is { } vm) vm.StatusText = AppLocalization.Get("Status.PathCopied");
     }
 
-    /// <summary>右键落在已选中的一张上时，整批一起操作；否则只处理这一张。</summary>
+    /// <summary>右键落在已选中的图片上时批量处理全部选中项；否则只处理当前图片。</summary>
     private List<AssetListItem> ContextTargets(AssetListItem item)
     {
         var selected = _vm.SelectedItems;
@@ -560,44 +565,48 @@ public partial class MainWindow : Window
         var targets = ContextTargets(item);
         var menu = new ContextMenu();
 
-        var open = new MenuItem { Header = "打开" };
+        var open = new MenuItem { Header = AppLocalization.Get("Menu.Open") };
         open.Click += (_, _) => OpenViewer(_vm, item);
         menu.Items.Add(open);
 
-        var reveal = new MenuItem { Header = "在资源管理器中显示" };
+        var reveal = new MenuItem { Header = AppLocalization.Get("Menu.Reveal") };
         reveal.Click += (_, _) => ExplorerReveal.Reveal(item.PrimaryPath);
         menu.Items.Add(reveal);
         menu.Items.Add(new Separator());
 
-        var copy = new MenuItem { Header = "复制" };
-        var copyImage = new MenuItem { Header = "复制图片" };
+        var copy = new MenuItem { Header = AppLocalization.Get("Menu.Copy") };
+        var copyImage = new MenuItem { Header = AppLocalization.Get("Menu.CopyImage") };
         copyImage.Click += async (_, _) => await CopyImageAsync(item);
         copy.Items.Add(copyImage);
 
         var copyFiles = new MenuItem
         {
-            Header = targets.Count > 1 ? $"复制 {targets.Count} 个文件" : "复制文件"
+            Header = targets.Count > 1
+                ? AppLocalization.Format("Menu.CopyFilesCount", targets.Count)
+                : AppLocalization.Get("Menu.CopyFile")
         };
         copyFiles.Click += (_, _) => CopyFiles(targets);
         copy.Items.Add(copyFiles);
 
-        var copyPath = new MenuItem { Header = "复制文件路径" };
+        var copyPath = new MenuItem { Header = AppLocalization.Get("Menu.CopyPath") };
         copyPath.Click += (_, _) => _ = CopyPathsAsync(targets);
         copy.Items.Add(copyPath);
         menu.Items.Add(copy);
 
-        menu.Items.Add(BuildTransferMenu("复制到", FileTransferMode.Copy, targets));
-        menu.Items.Add(BuildTransferMenu("移动到", FileTransferMode.Move, targets));
+        menu.Items.Add(BuildTransferMenu(AppLocalization.Get("Menu.CopyTo"), FileTransferMode.Copy, targets));
+        menu.Items.Add(BuildTransferMenu(AppLocalization.Get("Menu.MoveTo"), FileTransferMode.Move, targets));
         menu.Items.Add(new Separator());
 
-        var reanalyze = new MenuItem { Header = "重新分析标签" };
+        var reanalyze = new MenuItem { Header = AppLocalization.Get("Menu.ReanalyzeTags") };
         reanalyze.Click += async (_, _) => await ConfirmReanalyzeAssetAsync(item);
         menu.Items.Add(reanalyze);
         menu.Items.Add(new Separator());
 
         var delete = new MenuItem
         {
-            Header = targets.Count > 1 ? $"删除 {targets.Count} 张图片" : "删除图片"
+            Header = targets.Count > 1
+                ? AppLocalization.Format("Menu.DeleteImagesCount", targets.Count)
+                : AppLocalization.Get("Menu.DeleteImage")
         };
         delete.Click += (_, _) => _ = ConfirmAndDeleteAsync(targets);
         menu.Items.Add(delete);
@@ -620,7 +629,7 @@ public partial class MainWindow : Window
 
         if (_vm.Folders.Count > 0) menu.Items.Add(new Separator());
 
-        var browse = new MenuItem { Header = "选择其他文件夹…" };
+        var browse = new MenuItem { Header = AppLocalization.Get("Menu.ChooseOtherFolder") };
         browse.Click += async (_, _) => await PickAndTransferAsync(targets, mode);
         menu.Items.Add(browse);
         return menu;
@@ -638,7 +647,11 @@ public partial class MainWindow : Window
         var targets = _vm.SelectionSnapshot();
         if (anchor is null || targets.Count == 0) return;
 
-        var flyout = new MenuFlyout { Placement = PlacementMode.TopEdgeAlignedLeft };
+        var flyout = new MenuFlyout
+        {
+            Placement = PlacementMode.TopEdgeAlignedLeft,
+            VerticalOffset = -8
+        };
         foreach (var folder in _vm.Folders)
         {
             var entry = new MenuItem { Header = folder.Name };
@@ -649,7 +662,7 @@ public partial class MainWindow : Window
 
         if (_vm.Folders.Count > 0) flyout.Items.Add(new Separator());
 
-        var browse = new MenuItem { Header = "选择其他文件夹…" };
+        var browse = new MenuItem { Header = AppLocalization.Get("Menu.ChooseOtherFolder") };
         browse.Click += async (_, _) => await PickAndTransferAsync(targets, mode);
         flyout.Items.Add(browse);
 
@@ -659,8 +672,8 @@ public partial class MainWindow : Window
     private async Task PickAndTransferAsync(
         IReadOnlyList<AssetListItem> targets, FileTransferMode mode)
     {
-        var folder = await PickFolderAsync(
-            mode == FileTransferMode.Move ? "移动到文件夹" : "复制到文件夹");
+        var folder = await PickFolderAsync(AppLocalization.Get(
+            mode == FileTransferMode.Move ? "Picker.MoveToFolder" : "Picker.CopyToFolder"));
         if (folder is null) return;
 
         await _vm.TransferAsync(targets, folder, mode);
@@ -685,14 +698,17 @@ public partial class MainWindow : Window
         if (items.Count == 0) return;
 
         var detail = string.Join(Environment.NewLine, items.Take(3).Select(item => item.FileName));
-        if (items.Count > 3) detail += $"{Environment.NewLine}等 {items.Count} 张图片";
+        if (items.Count > 3)
+            detail += $"{Environment.NewLine}{AppLocalization.Format("Confirm.Delete.MoreItems", items.Count)}";
 
         var confirmed = await ConfirmWindow.AskAsync(
             this,
-            items.Count > 1 ? $"删除 {items.Count} 张图片？" : "删除这张图片？",
-            "文件将移到回收站，可从回收站还原。图片的标签与索引会一并移除。",
+            items.Count > 1
+                ? AppLocalization.Format("Confirm.DeleteMany.Title", items.Count)
+                : AppLocalization.Get("Confirm.DeleteOne.Title"),
+            AppLocalization.Get("Confirm.Delete.Message"),
             detail,
-            "移到回收站");
+            AppLocalization.Get("Confirm.Delete.Action"));
         if (!confirmed) return;
 
         await _vm.DeleteAssetsAsync(items);
@@ -703,7 +719,7 @@ public partial class MainWindow : Window
         // 解码原文件失败时退回缓存的缩略图，RAW 与 HEIC 也能复制。
         var copied = await WindowsClipboard.CopyImageAsync(
             item.PrimaryPath, _thumbnails.GetCached(item.Sha256));
-        _vm.StatusText = copied ? "已复制图片到剪贴板" : "无法复制这张图片";
+        _vm.StatusText = AppLocalization.Get(copied ? "Status.ImageCopied" : "Status.ImageCopyFailed");
     }
 
     private void CopyFiles(IReadOnlyList<AssetListItem> items)
@@ -715,13 +731,13 @@ public partial class MainWindow : Window
 
         if (paths.Count == 0)
         {
-            _vm.StatusText = "文件已不在磁盘上";
+            _vm.StatusText = AppLocalization.Get("Status.FilesMissing");
             return;
         }
 
         _vm.StatusText = WindowsClipboard.CopyFiles(paths)
-            ? $"已复制 {paths.Count} 个文件到剪贴板"
-            : "无法写入剪贴板";
+            ? AppLocalization.FormatCount("Status.FilesCopiedOne", "Status.FilesCopied", paths.Count)
+            : AppLocalization.Get("Status.ClipboardFailed");
     }
 
     private async Task CopyPathsAsync(IReadOnlyList<AssetListItem> items)
@@ -733,8 +749,8 @@ public partial class MainWindow : Window
 
         await Clipboard.SetTextAsync(text);
         _vm.StatusText = items.Count > 1
-            ? $"已复制 {items.Count} 个路径"
-            : "已复制文件路径";
+            ? AppLocalization.Format("Status.PathsCopied", items.Count)
+            : AppLocalization.Get("Status.PathCopied");
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

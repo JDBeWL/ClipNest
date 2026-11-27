@@ -32,13 +32,13 @@ public sealed class WaterfallGallery : Control
     public static readonly StyledProperty<bool> UniformTilesProperty =
         AvaloniaProperty.Register<WaterfallGallery, bool>(nameof(UniformTiles));
 
-    private const double OpenButtonSize = 26;
+    private const double OpenButtonSize = 28;
     private const double ScrollBarWidth = 4;
-    private const double TileRadius = 14;
-    private const double HoverScaleTarget = 1.025;
+    private const double TileRadius = 12;
+    private const double HoverScaleTarget = 1.02;
     private const int MaxConcurrentLoads = 6;
 
-    // 图库不限制条数后，纹理缓存必须自行封顶，否则滚过整库会一直占着位图。
+    // 图库规模不设上限，纹理缓存按槽位封顶，避免滚过整库后位图持续驻留内存。
     private const long MaxTextureBytes = 192L * 1024 * 1024;
 
     // 瓦片最高约 340×755 逻辑像素，2 倍屏下 1536 的长边足够覆盖；再大只会让常驻位图翻倍。
@@ -68,6 +68,7 @@ public sealed class WaterfallGallery : Control
     private readonly SemaphoreSlim _loadGate = new(MaxConcurrentLoads, MaxConcurrentLoads);
 
     private int _themeVersion = ThemeColors.Version;
+    private int _fontVersion = AppFonts.Version;
     private IBrush _background = new SolidColorBrush(BackgroundColor);
     private IBrush _placeholder = new SolidColorBrush(PlaceholderColor);
     private IPen _placeholderPen = new Pen(new SolidColorBrush(PlaceholderLineColor), 1.4);
@@ -77,6 +78,8 @@ public sealed class WaterfallGallery : Control
     private IBrush _scrollThumb = new SolidColorBrush(ThemeColors.ScrollThumb);
     private IBrush _scrollThumbActive = new SolidColorBrush(ThemeColors.ScrollThumbHover);
     private IPen _hoverPen = new Pen(new SolidColorBrush(HoverOutlineColor), 1);
+    private IPen _tileRimPen = new Pen(new SolidColorBrush(ThemeColors.TileRim), 1);
+    private IPen _openButtonRimPen = new Pen(new SolidColorBrush(ThemeColors.OverlayButtonRim), 1);
 
     // 选中态用三层低透明度描边叠出柔光，再描一条细亮边，避免硬蓝框。
     private IPen _selectionGlowPen = new Pen(new SolidColorBrush(Alpha(ThemeColors.Accent, 0x1F)), 6);
@@ -89,7 +92,7 @@ public sealed class WaterfallGallery : Control
     private readonly IPen _badgeRim = new Pen(new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF)), 1);
     private readonly IPen _checkPen = new Pen(new SolidColorBrush(AccentColor), 1.9);
     private IPen _iconPen = new Pen(new SolidColorBrush(OverlayTextColor), 1.4);
-    private readonly Typeface _typeface = new(AppFonts.Ui);
+    private Typeface _typeface = new(AppFonts.Ui);
     private bool _frameScheduled;
     private double _lastFrameMs = -1;
 
@@ -136,7 +139,7 @@ public sealed class WaterfallGallery : Control
         BuildScrim();
     }
 
-    /// <summary>文件名遮罩从透明过渡到底色，避免出现一条生硬的横带。</summary>
+    /// <summary>文件名遮罩用三段曲线过渡到底色，避免出现生硬横带。</summary>
     private void BuildScrim()
     {
         var color = ScrimColor;
@@ -147,6 +150,7 @@ public sealed class WaterfallGallery : Control
             GradientStops =
             {
                 new GradientStop(Color.FromArgb(0x00, color.R, color.G, color.B), 0),
+                new GradientStop(Color.FromArgb(0x52, color.R, color.G, color.B), 0.45),
                 new GradientStop(color, 1)
             }
         };
@@ -155,9 +159,15 @@ public sealed class WaterfallGallery : Control
     private static Color Alpha(Color color, byte alpha)
         => Color.FromArgb(alpha, color.R, color.G, color.B);
 
-    /// <summary>主题变化后重建缓存画刷。绘制前调用，开销只有一次版本比较。</summary>
+    /// <summary>主题或字体变化后重建缓存画刷与字形。绘制前调用，开销只有两次版本比较。</summary>
     private void EnsureThemeBrushes()
     {
+        if (_fontVersion != AppFonts.Version)
+        {
+            _fontVersion = AppFonts.Version;
+            _typeface = new Typeface(AppFonts.Ui);
+        }
+
         if (_themeVersion == ThemeColors.Version) return;
         _themeVersion = ThemeColors.Version;
 
@@ -169,6 +179,8 @@ public sealed class WaterfallGallery : Control
         _scrollThumb = new SolidColorBrush(ThemeColors.ScrollThumb);
         _scrollThumbActive = new SolidColorBrush(ThemeColors.ScrollThumbHover);
         _hoverPen = new Pen(new SolidColorBrush(HoverOutlineColor), 1);
+        _tileRimPen = new Pen(new SolidColorBrush(ThemeColors.TileRim), 1);
+        _openButtonRimPen = new Pen(new SolidColorBrush(ThemeColors.OverlayButtonRim), 1);
         _selectionGlowPen = new Pen(new SolidColorBrush(Alpha(ThemeColors.Accent, 0x1F)), 6);
         _selectionHaloPen = new Pen(new SolidColorBrush(Alpha(ThemeColors.Accent, 0x33)), 2.4);
         _selectionRimPen = new Pen(new SolidColorBrush(Alpha(ThemeColors.AccentBright, 0xD9)), 1.1);
@@ -468,6 +480,9 @@ public sealed class WaterfallGallery : Control
 
         DrawThumbnail(context, item, rect);
 
+        if (!hover && !selected)
+            context.DrawRectangle(null, _tileRimPen, rect.Deflate(0.5), TileRadius, TileRadius);
+
         if (hover)
         {
             // 选中项的边框已由选中环表达，这里只叠悬停信息层。
@@ -592,25 +607,50 @@ public sealed class WaterfallGallery : Control
     {
         using (context.PushClip(new RoundedRect(imageRect, TileRadius)))
         {
-            const double band = 46;
+            const double band = 48;
             var scrim = new Rect(imageRect.X, imageRect.Bottom - band, imageRect.Width, band);
             context.FillRectangle(_scrim, scrim);
 
             // 严格单行。长文件名用省略号收尾，不换行，否则第二行会被瓦片底边切掉。
+            var fontSize = AppFonts.CanvasFontSize;
             var name = new FormattedText(
                 item.FileName,
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
                 _typeface,
-                12,
+                fontSize,
                 _overlayText)
             {
                 MaxTextWidth = Math.Max(10, imageRect.Width - 20),
-                MaxTextHeight = 18,
+                MaxTextHeight = Math.Ceiling(fontSize * 1.5),
                 MaxLineCount = 1,
                 Trimming = TextTrimming.CharacterEllipsis
             };
             context.DrawText(name, new Point(imageRect.X + 10, imageRect.Bottom - 10 - name.Height));
+        }
+
+        // 瓦片足够宽且尺寸已知时，在左上角叠一枚分辨率微胶囊，与右上角展开按钮形成平衡。
+        if (item is { Width: > 0, Height: > 0 } && imageRect.Width >= 145)
+        {
+            var badgeSize = Math.Max(10.5, AppFonts.CanvasFontSize - 1);
+            var dimText = new FormattedText(
+                $"{item.Width}×{item.Height}",
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                _typeface,
+                badgeSize,
+                _overlayText);
+            var pillWidth = dimText.Width + 14;
+            var pillHeight = Math.Max(22, dimText.Height + 6);
+            if (pillWidth + OpenButtonSize + 24 <= imageRect.Width)
+            {
+                var badgeRect = new Rect(imageRect.X + 8, imageRect.Y + 8, pillWidth, pillHeight);
+                var radius = pillHeight / 2;
+                context.DrawRectangle(_openButton, _openButtonRimPen, badgeRect, radius, radius);
+                context.DrawText(
+                    dimText,
+                    new Point(badgeRect.X + 7, badgeRect.Y + (pillHeight - dimText.Height) / 2));
+            }
         }
 
         var openRect = new Rect(
@@ -619,7 +659,7 @@ public sealed class WaterfallGallery : Control
             OpenButtonSize,
             OpenButtonSize);
         _hoverOpenRect = openRect;
-        context.DrawRectangle(_openButton, null, openRect, 9, 9);
+        context.DrawRectangle(_openButton, _openButtonRimPen, openRect, 9, 9);
         DrawExpandGlyph(context, openRect);
     }
 
@@ -1137,11 +1177,11 @@ public sealed class WaterfallGallery : Control
     private ContextMenu CreateDefaultContextMenu(AssetListItem item)
     {
         var menu = new ContextMenu();
-        var open = new MenuItem { Header = "打开" };
+        var open = new MenuItem { Header = AppLocalization.Get("Menu.Open") };
         open.Click += (_, _) => ItemActivated?.Invoke(this, item);
-        var reveal = new MenuItem { Header = "在资源管理器中显示" };
+        var reveal = new MenuItem { Header = AppLocalization.Get("Menu.Reveal") };
         reveal.Click += (_, _) => ExplorerReveal.Reveal(item.PrimaryPath);
-        var copy = new MenuItem { Header = "复制文件路径" };
+        var copy = new MenuItem { Header = AppLocalization.Get("Menu.CopyPath") };
         copy.Click += async (_, _) =>
         {
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
@@ -1155,8 +1195,8 @@ public sealed class WaterfallGallery : Control
     }
 
     /// <summary>
-    /// 请求在合成器的下一帧推进动画。用帧回调而不是 16ms 定时器，
-    /// 高刷屏上滚动步进才与刷新节奏对齐，不会出现速度不均的顿挫。
+    /// 请求在合成器的下一帧推进动画。使用帧回调而不是 16ms 定时器，
+    /// 使高刷屏上的滚动步进与刷新节奏同步，避免出现速度不均的顿挫。
     /// </summary>
     private void RequestFrame()
     {

@@ -6,6 +6,8 @@ namespace ClipNest.Ai.Tagging;
 public enum TagModelKind
 {
     Camie,
+    WdTagger,
+    ClTagger,
     RecognizeAnything,
     Siglip
 }
@@ -90,7 +92,7 @@ public sealed class TagModelDefinition
     };
 
     /// <summary>
-    /// RAM++ 通用标注模型，覆盖 4,585 个常见物体与场景标签，适合常规照片。
+    /// RAM++ 通用标注模型，覆盖 4,585 个常见物体与场景标签，适合常规图片。
     /// 许可证为 Apache-2.0，ONNX 图内完成 ImageNet 归一化。
     /// </summary>
     /// <remarks>
@@ -146,9 +148,90 @@ public sealed class TagModelDefinition
         ImageSize = 224
     };
 
+    /// <summary>
+    /// SmilingWolf WD Tagger v3（EVA02-Large），覆盖 10,861 个 danbooru 特征与角色标签。
+    /// 许可证为 Apache-2.0，输出已过 Sigmoid。
+    /// </summary>
+    public static TagModelDefinition WdEva02LargeV3 { get; } = new()
+    {
+        Id = "wd-eva02-large-tagger-v3",
+        DisplayName = "WD EVA02-Large v3",
+        License = "Apache-2.0",
+        Homepage = "https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3",
+        BaseUrls = new[]
+        {
+            "https://hf-mirror.com/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/",
+            "https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/"
+        },
+        Files = new[]
+        {
+            new ModelFile("model.onnx", "model.onnx", 1_260_435_999),
+            new ModelFile("selected_tags.csv", "selected_tags.csv", 308_468)
+        },
+        Kind = TagModelKind.WdTagger,
+        ImageSize = 448,
+        PadRed = 255,
+        PadGreen = 255,
+        PadBlue = 255
+    };
+
+    /// <summary>
+    /// SmilingWolf WD Tagger v3（SwinV2），与 EVA02-Large 共用 10,861 标签表。
+    /// 许可证为 Apache-2.0，权重体积与推理耗时更低。
+    /// </summary>
+    public static TagModelDefinition WdSwinV2V3 { get; } = new()
+    {
+        Id = "wd-swinv2-tagger-v3",
+        DisplayName = "WD SwinV2 v3",
+        License = "Apache-2.0",
+        Homepage = "https://huggingface.co/SmilingWolf/wd-swinv2-tagger-v3",
+        BaseUrls = new[]
+        {
+            "https://hf-mirror.com/SmilingWolf/wd-swinv2-tagger-v3/resolve/main/",
+            "https://huggingface.co/SmilingWolf/wd-swinv2-tagger-v3/resolve/main/"
+        },
+        Files = new[]
+        {
+            new ModelFile("model.onnx", "model.onnx", 467_460_978),
+            new ModelFile("selected_tags.csv", "selected_tags.csv", 308_468)
+        },
+        Kind = TagModelKind.WdTagger,
+        ImageSize = 448,
+        PadRed = 255,
+        PadGreen = 255,
+        PadBlue = 255
+    };
+
+    /// <summary>
+    /// CL Tagger v1.02，覆盖 51,213 个 danbooru 标签，含角色、作品系列、画师与构图特征。
+    /// 许可证为 Apache-2.0，采用 CS-ASL 训练并输出原始 logits。
+    /// </summary>
+    public static TagModelDefinition ClTagger { get; } = new()
+    {
+        Id = "cl-tagger-1-02",
+        DisplayName = "CL Tagger v1.02",
+        License = "Apache-2.0",
+        Homepage = "https://huggingface.co/cella110n/cl_tagger",
+        BaseUrls = new[]
+        {
+            "https://hf-mirror.com/cella110n/cl_tagger/resolve/main/",
+            "https://huggingface.co/cella110n/cl_tagger/resolve/main/"
+        },
+        Files = new[]
+        {
+            new ModelFile("cl_tagger_1_02/model.onnx", "model.onnx", 1_425_860_192),
+            new ModelFile("cl_tagger_1_02/tag_mapping.json", "tag_mapping.json", 4_088_861)
+        },
+        Kind = TagModelKind.ClTagger,
+        ImageSize = 448,
+        PadRed = 255,
+        PadGreen = 255,
+        PadBlue = 255
+    };
+
     /// <summary>可选标注模型；顺序决定设置页展示顺序，首个为默认。</summary>
     public static IReadOnlyList<TagModelDefinition> All { get; } =
-        new[] { CamieV2, Camie, RamPlus, Siglip2 };
+        new[] { CamieV2, Camie, WdEva02LargeV3, WdSwinV2V3, ClTagger, RamPlus, Siglip2 };
 
     public static TagModelDefinition Default => CamieV2;
 

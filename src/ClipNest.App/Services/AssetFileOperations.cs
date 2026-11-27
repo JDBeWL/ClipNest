@@ -72,11 +72,13 @@ public sealed class AssetFileOperations
         }
         catch (Exception ex)
         {
-            return new BatchOutcome(0, items.Count, new[] { $"目标路径无效：{ex.Message}" });
+            return new BatchOutcome(0, items.Count,
+                new[] { AppLocalization.Format("FileOp.InvalidTargetPath", ex.Message) });
         }
 
         if (!Directory.Exists(targetFolder))
-            return new BatchOutcome(0, items.Count, new[] { $"目标文件夹不存在：{targetFolder}" });
+            return new BatchOutcome(0, items.Count,
+                new[] { AppLocalization.Format("FileOp.TargetNotFound", targetFolder) });
 
         var folderId = await _folders.EnsureAsync(targetFolder, ct);
         var files = await _assets.GetFilesForAssetsAsync(items.Select(item => item.Id).ToList(), ct);
@@ -100,7 +102,7 @@ public sealed class AssetFileOperations
 
             if (!filesByAsset.TryGetValue(item.Id, out var assetFiles) || assetFiles.Count == 0)
             {
-                errors.Add($"{item.FileName}：索引中没有文件");
+                errors.Add(AppLocalization.Format("FileOp.NotInIndex", item.FileName));
                 skipped++;
                 continue;
             }
@@ -111,7 +113,7 @@ public sealed class AssetFileOperations
                 ?? assetFiles[0];
             if (!File.Exists(source.Path))
             {
-                errors.Add($"{item.FileName}：文件不存在");
+                errors.Add(AppLocalization.Format("FileOp.FileNotFound", item.FileName));
                 skipped++;
                 continue;
             }
@@ -134,7 +136,7 @@ public sealed class AssetFileOperations
             }
             catch (Exception ex)
             {
-                errors.Add($"{item.FileName}：{ex.Message}");
+                errors.Add(AppLocalization.Format("FileOp.ErrorItem", item.FileName, ex.Message));
                 continue;
             }
 
@@ -174,7 +176,7 @@ public sealed class AssetFileOperations
         catch (Exception ex)
         {
             // 文件已迁移而索引写入失败时如实报错，下一次扫描会重新登记这条路径。
-            errors.Add($"写入索引失败：{ex.Message}");
+            errors.Add(AppLocalization.Format("FileOp.IndexWriteFailed", ex.Message));
         }
 
         return new BatchOutcome(succeeded, skipped, errors);
@@ -208,13 +210,13 @@ public sealed class AssetFileOperations
         {
             if (!filesByAsset.TryGetValue(item.Id, out var assetFiles) || assetFiles.Count == 0)
             {
-                errors.Add($"{item.FileName}：索引中没有文件");
+                errors.Add(AppLocalization.Format("FileOp.NotInIndex", item.FileName));
                 continue;
             }
 
             if (assetFiles.Any(file => File.Exists(file.Path) && !removed.Contains(file.Path)))
             {
-                errors.Add($"{item.FileName}：文件仍被占用");
+                errors.Add(AppLocalization.Format("FileOp.FileInUse", item.FileName));
                 continue;
             }
 

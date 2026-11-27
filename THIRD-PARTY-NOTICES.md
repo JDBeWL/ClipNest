@@ -54,6 +54,8 @@ ClipNest 本体以 MIT 许可证发布，版权所有 © 2026 JDBeWL，全文见
 | Recognize Anything++（RAM++） | Apache-2.0 | 通用标签识别 |
 | SigLIP2（google/siglip2-base-patch16-224） | Apache-2.0 | 通用标签识别；视觉权重按需下载，标签嵌入随程序分发 |
 | CAMIE Tagger、CAMIE Tagger v2 | GPL-3.0 | 权重由用户在本机按需下载，不随安装包或便携包分发 |
+| SmilingWolf WD Tagger v3（EVA02-Large、SwinV2） | Apache-2.0 | 二次元标签与角色识别；权重按需下载 |
+| CL Tagger（cella110n/cl_tagger v1.02） | Apache-2.0 | 二次元角色、作品与特征标签识别；权重按需下载 |
 
 ## 完整许可文本
 

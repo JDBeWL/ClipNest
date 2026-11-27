@@ -44,7 +44,7 @@ public sealed class DangerButtonStyleTests
         Dispatcher.UIThread.RunJobs();
 
         var presenters = button.GetVisualDescendants().OfType<ContentPresenter>().ToList();
-        Assert.True(button.IsPointerOver, $"指针未进入按钮，presenters={presenters.Count}");
+        Assert.True(button.IsPointerOver, $"按钮应处于指针悬停状态以验证 danger 背景色；当前 presenters 数量为 {presenters.Count}");
         var presenter = presenters.First();
         var background = Assert.IsType<SolidColorBrush>(presenter.Background);
         Assert.Equal(ThemeColors.Danger, background.Color);

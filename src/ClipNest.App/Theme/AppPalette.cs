@@ -15,6 +15,7 @@ public static class AppPalette
     public static readonly Color SurfaceShell = Color.Parse("#B8141418");
     public static readonly Color SurfaceGlass = Color.Parse("#A61C1C22");
     public static readonly Color SurfaceNavigation = Color.Parse("#BF1B1C21");
+    public static readonly Color SurfaceInspector = Color.Parse("#6616171C");
     public static readonly Color SurfaceStatusBar = Color.Parse("#BF1B1C21");
     public static readonly Color SurfaceElevated = Color.Parse("#17FFFFFF");
     public static readonly Color SurfaceCard = Color.Parse("#0FFFFFFF");
@@ -32,11 +33,11 @@ public static class AppPalette
     public static readonly Color ControlWell = Color.Parse("#12FFFFFF");
     public static readonly Color ControlThumb = Color.Parse("#2BFFFFFF");
 
-    // 文本色，四级，纯中性。
-    public static readonly Color TextPrimary = Color.Parse("#FFFFFF");
-    public static readonly Color TextSecondary = Color.Parse("#C7CAD1");
-    public static readonly Color TextTertiary = Color.Parse("#94989F");
-    public static readonly Color TextDisabled = Color.Parse("#5A5E67");
+    // 文本色，四级，纯中性。主文本避开纯白，减轻深底上的字形光晕。
+    public static readonly Color TextPrimary = Color.Parse("#ECEEF2");
+    public static readonly Color TextSecondary = Color.Parse("#A8ADB8");
+    public static readonly Color TextTertiary = Color.Parse("#767C88");
+    public static readonly Color TextDisabled = Color.Parse("#525761");
     public static readonly Color TextInverse = Color.Parse("#0A0B0E");
 
     // 强调色，取 macOS 系统蓝。
@@ -53,7 +54,9 @@ public static class AppPalette
     // 选中态与覆盖层。
     public static readonly Color SelectionFill = Color.FromArgb(0x3D, 0x0A, 0x84, 0xFF);
     public static readonly Color SelectionOuter = Color.FromArgb(0xCC, 0x05, 0x07, 0x0A);
-    public static readonly Color HoverOutline = Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF);
+    public static readonly Color HoverOutline = Color.FromArgb(0x47, 0xFF, 0xFF, 0xFF);
+    public static readonly Color TileRim = Color.FromArgb(0x1C, 0xFF, 0xFF, 0xFF);
+    public static readonly Color OverlayButtonRim = Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF);
     public static readonly Color Scrim = Color.FromArgb(0x59, 0x08, 0x09, 0x0C);
     // 图片上的文件名遮罩，与环境层的 Scrim 分开，保证亮图上也读得清。
     public static readonly Color TileScrim = Color.FromArgb(0xB8, 0x06, 0x07, 0x0A);

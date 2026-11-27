@@ -6,15 +6,21 @@ namespace ClipNest.App.ViewModels;
 /// <summary>设置页里的一个标注模型条目，也用于文件夹的模型下拉框。</summary>
 public sealed partial class TagModelOption : ObservableObject
 {
-    public TagModelOption(string id, string displayName)
+    public TagModelOption(string id, string displayName, string description = "")
     {
         Id = id;
-        DisplayName = displayName;
+        _displayName = displayName;
+        _description = description;
     }
 
     public string Id { get; }
 
-    public string DisplayName { get; }
+    [ObservableProperty] private string _displayName;
+    [ObservableProperty] private string _description;
+
+    public bool HasDescription => Description.Length > 0;
+
+    partial void OnDescriptionChanged(string value) => OnPropertyChanged(nameof(HasDescription));
 
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private bool _isReady;

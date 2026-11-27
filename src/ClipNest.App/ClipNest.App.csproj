@@ -31,6 +31,13 @@
     <None Update="Assets\Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- 多语言 JSON 语言包同时内嵌与输出到目录，支持用户增改语言包并在打包发布后稳定加载。 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Locales\*.json" />
+    <None Include="Assets\Locales\*.json" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!--
     SigLIP2 的标签表与预计算标签嵌入随程序分发。
     运行时只用视觉编码器，文本编码器不参与推理。

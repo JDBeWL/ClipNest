@@ -36,6 +36,49 @@ public sealed class SettingsServiceTests
             Assert.True(settings.Settings.AutoTaggingEnabled);
             Assert.True(settings.Settings.AutoIndexingEnabled);
             Assert.Equal(AppearanceModes.System, settings.Settings.Appearance);
+            Assert.Equal(LanguageModes.System, settings.Settings.Language);
+            Assert.Equal(FontPresets.System, settings.Settings.FontFamily);
+            Assert.Equal(FontScales.Standard, settings.Settings.FontScale);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Language_Settings_RoundTrip()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"clipnest-{Guid.NewGuid():N}.json");
+        try
+        {
+            var settings = new SettingsService(path);
+            settings.Settings.Language = LanguageModes.JaJp;
+            settings.Save();
+
+            var reloaded = new SettingsService(path);
+            Assert.Equal(LanguageModes.JaJp, reloaded.Settings.Language);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Typography_Settings_RoundTrip()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"clipnest-{Guid.NewGuid():N}.json");
+        try
+        {
+            var settings = new SettingsService(path);
+            settings.Settings.FontFamily = "DengXian";
+            settings.Settings.FontScale = FontScales.Comfortable;
+            settings.Save();
+
+            var reloaded = new SettingsService(path);
+            Assert.Equal("DengXian", reloaded.Settings.FontFamily);
+            Assert.Equal(FontScales.Comfortable, reloaded.Settings.FontScale);
         }
         finally
         {

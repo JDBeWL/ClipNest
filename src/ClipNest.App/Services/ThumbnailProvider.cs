@@ -8,7 +8,7 @@ namespace ClipNest.App.Services;
 
 public sealed class ThumbnailProvider : IThumbnailProvider
 {
-    // 图库不再限制条数后，解码缓存需要按内存封顶，淘汰后仍可从未变的缩略图文件重新解码。
+    // 图库规模不设上限，解码缓存按内存上限淘汰；淘汰后仍可从未变的缩略图文件重新解码。
     private const long MaxCacheBytes = 256L * 1024 * 1024;
     private const long MaxBlurBytes = 16L * 1024 * 1024;
 

@@ -18,6 +18,7 @@ public static class AppPaletteLight
     public static readonly Color SurfaceShell = Color.Parse("#F0F7F7FA");
     public static readonly Color SurfaceGlass = Color.Parse("#E6FFFFFF");
     public static readonly Color SurfaceNavigation = Color.Parse("#E6EFEFF2");
+    public static readonly Color SurfaceInspector = Color.Parse("#80F5F6F9");
     public static readonly Color SurfaceStatusBar = Color.Parse("#E6EFEFF2");
     public static readonly Color SurfaceElevated = Color.Parse("#0F000000");
     public static readonly Color SurfaceCard = Color.Parse("#08000000");
@@ -57,7 +58,9 @@ public static class AppPaletteLight
     // 选中态。选中环外侧的衬底用白色；浅色界面里深色衬底会变成一圈黑边。
     public static readonly Color SelectionFill = Color.FromArgb(0x2E, 0x00, 0x7A, 0xFF);
     public static readonly Color SelectionOuter = Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF);
-    public static readonly Color HoverOutline = Color.FromArgb(0x29, 0x00, 0x00, 0x00);
+    public static readonly Color HoverOutline = Color.FromArgb(0x33, 0x00, 0x00, 0x00);
+    public static readonly Color TileRim = Color.FromArgb(0x18, 0x00, 0x00, 0x00);
+    public static readonly Color OverlayButtonRim = AppPalette.OverlayButtonRim;
 
     // 压在图片上的遮罩保持深色，图片亮度与界面主题无关。
     public static readonly Color Scrim = Color.FromArgb(0x33, 0x00, 0x00, 0x00);

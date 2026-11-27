@@ -84,7 +84,7 @@ public static class OrtAccelerator
         var cpu = new InferenceSession(modelPath, BuildOptions(useGpu: false));
         if (allowGpu)
         {
-            // 只有请求过 GPU 的会话才更新状态，避免 CLIP 这类固定走 CPU 的会话把显示改成 CPU。
+            // 只有请求过 GPU 的会话才更新状态，避免 CLIP 这类固定走 CPU 的会话覆盖设备显示。
             Active = AcceleratorKind.Cpu;
             HasSession = true;
         }

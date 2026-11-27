@@ -28,6 +28,7 @@ public sealed class ThumbnailGridCanvas : Control
     private readonly HashSet<string> _failed = new();
     private readonly SemaphoreSlim _loadGate = new(MaxConcurrentLoads, MaxConcurrentLoads);
     private int _themeVersion = ThemeColors.Version;
+    private int _fontVersion = AppFonts.Version;
     private IBrush _background = new SolidColorBrush(ThemeColors.SurfaceWindow);
     private IBrush _card = new SolidColorBrush(ThemeColors.SurfaceElevated);
     private IBrush _cardHover = new SolidColorBrush(ThemeColors.SurfaceHover);
@@ -39,7 +40,7 @@ public sealed class ThumbnailGridCanvas : Control
     private IPen _selectedBorder = new Pen(new SolidColorBrush(ThemeColors.Accent), 2);
     private IPen _placeholderPen = new Pen(new SolidColorBrush(ThemeColors.BorderStrong), 1.5);
     private IBrush _selectedGlow = new SolidColorBrush(ThemeColors.SelectionFill);
-    private readonly Typeface _typeface = new(AppFonts.Ui);
+    private Typeface _typeface = new(AppFonts.Ui);
     private readonly DispatcherTimer _timer;
 
     private double _scroll;
@@ -113,9 +114,15 @@ public sealed class ThumbnailGridCanvas : Control
         InvalidateVisual();
     }
 
-    /// <summary>主题变化后重建缓存画刷。绘制前调用，开销只有一次版本比较。</summary>
+    /// <summary>主题或字体变化后重建缓存画刷与字形。绘制前调用，开销只有两次版本比较。</summary>
     private void EnsureThemeBrushes()
     {
+        if (_fontVersion != AppFonts.Version)
+        {
+            _fontVersion = AppFonts.Version;
+            _typeface = new Typeface(AppFonts.Ui);
+        }
+
         if (_themeVersion == ThemeColors.Version) return;
         _themeVersion = ThemeColors.Version;
         _background = new SolidColorBrush(ThemeColors.SurfaceWindow);

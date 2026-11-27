@@ -171,7 +171,7 @@ public sealed class WicImageDecoder : IImageDecoder
     }
 
     // TrimMode=partial 只裁剪标记为 IsTrimmable 的程序集，本程序集不会被裁剪，
-    // ComImport 接口元数据完整保留；裁剪发布下 HEIC 解码已实测正常。
+    // ComImport 接口元数据完整保留，发布裁剪后 HEIC 解码仍可正常工作。
     [UnconditionalSuppressMessage(
         "Trimming",
         "IL2050",

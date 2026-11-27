@@ -107,6 +107,27 @@ public partial class ViewerWindow : Window
         _ = ShowCurrentAsync();
     }
 
+    /// <summary>语言切换后刷新查看器的右键菜单、元信息与窗框提示。</summary>
+    public void RefreshLocalizedUi()
+    {
+        Stage.ContextMenu = BuildContextMenu();
+        SyncWindowState();
+        if (_items.Count > 0)
+        {
+            UpdateMetaText(_items[_index]);
+        }
+    }
+
+    private void UpdateMetaText(AssetListItem item)
+    {
+        var dimensions = item is { Width: > 0, Height: > 0 }
+            ? $"{item.Width} × {item.Height}"
+            : AppLocalization.Get("Inspector.UnknownDimensions");
+        var date = item.TakenAt?.ToString("yyyy-MM-dd")
+            ?? AppLocalization.Get("Inspector.UnknownDate");
+        MetaText.Text = $"{dimensions}  ·  {date}";
+    }
+
     private async Task ShowCurrentAsync()
     {
         if (_items.Count == 0) return;
@@ -118,11 +139,7 @@ public partial class ViewerWindow : Window
 
         Title = item.FileName;
         FileNameText.Text = item.FileName;
-        var dimensions = item is { Width: > 0, Height: > 0 }
-            ? $"{item.Width} × {item.Height}"
-            : "尺寸未知";
-        var date = item.TakenAt?.ToString("yyyy-MM-dd") ?? "拍摄时间未记录";
-        MetaText.Text = $"{dimensions}  ·  {date}";
+        UpdateMetaText(item);
         InfoText.Text = item.PrimaryPath;
         ToolTip.SetTip(InfoText, item.PrimaryPath);
         PrevButton.IsEnabled = _index > 0;
@@ -163,7 +180,7 @@ public partial class ViewerWindow : Window
         else if (placeholder is null)
         {
             ZoomText.Text = "—";
-            InfoText.Text = $"{item.PrimaryPath}（无法生成预览）";
+            InfoText.Text = AppLocalization.Format("Viewer.PreviewUnavailable", item.PrimaryPath);
         }
     }
 
@@ -347,7 +364,7 @@ public partial class ViewerWindow : Window
         ApplyZoom(center);
     }
 
-    /// <summary>以视口中心为锚点缩放，避免放大后画面跳到别处。</summary>
+    /// <summary>以视口中心为锚点缩放，避免放大后画面发生偏移。</summary>
     private void ZoomBy(double factor)
     {
         if (_imageWidth <= 0) return;
@@ -516,24 +533,28 @@ public partial class ViewerWindow : Window
     {
         var menu = new ContextMenu();
 
-        var copyImage = new MenuItem { Header = "复制图片" };
+        var copyImage = new MenuItem { Header = AppLocalization.Get("Menu.CopyImage") };
         copyImage.Click += async (_, _) => await CopyCurrentImageAsync();
         menu.Items.Add(copyImage);
 
-        var copyFile = new MenuItem { Header = "复制文件" };
+        var copyFile = new MenuItem { Header = AppLocalization.Get("Menu.CopyFile") };
         copyFile.Click += (_, _) => CopyCurrentFile();
         menu.Items.Add(copyFile);
 
-        var copyPath = new MenuItem { Header = "复制文件路径" };
+        var copyPath = new MenuItem { Header = AppLocalization.Get("Menu.CopyPath") };
         copyPath.Click += async (_, _) => await CopyCurrentPathAsync();
         menu.Items.Add(copyPath);
         menu.Items.Add(new Separator());
 
-        var reveal = new MenuItem { Header = "在资源管理器中显示" };
+        var reveal = new MenuItem { Header = AppLocalization.Get("Menu.Reveal") };
         reveal.Click += (_, _) => RevealCurrent();
         menu.Items.Add(reveal);
 
-        var delete = new MenuItem { Header = "删除图片", IsEnabled = _operations is not null };
+        var delete = new MenuItem
+        {
+            Header = AppLocalization.Get("Menu.DeleteImage"),
+            IsEnabled = _operations is not null
+        };
         delete.Click += (_, _) => _ = DeleteCurrentAsync();
         menu.Items.Add(delete);
 
@@ -547,7 +568,7 @@ public partial class ViewerWindow : Window
         var item = _items[_index];
         var copied = await WindowsClipboard.CopyImageAsync(
             item.PrimaryPath, ImageView.Source as Bitmap);
-        FlashStatus(copied ? "已复制图片到剪贴板" : "无法复制这张图片");
+        FlashStatus(AppLocalization.Get(copied ? "Status.ImageCopied" : "Status.ImageCopyFailed"));
     }
 
     private void CopyCurrentFile()
@@ -555,7 +576,7 @@ public partial class ViewerWindow : Window
         if (_items.Count == 0) return;
 
         var copied = WindowsClipboard.CopyFiles(new[] { _items[_index].PrimaryPath });
-        FlashStatus(copied ? "已复制文件到剪贴板" : "无法复制这个文件");
+        FlashStatus(AppLocalization.Get(copied ? "Status.FileCopied" : "Status.FileCopyFailed"));
     }
 
     private async Task CopyCurrentPathAsync()
@@ -563,16 +584,16 @@ public partial class ViewerWindow : Window
         if (_items.Count == 0 || Clipboard is null) return;
 
         await Clipboard.SetTextAsync(_items[_index].PrimaryPath);
-        FlashStatus("已复制文件路径");
+        FlashStatus(AppLocalization.Get("Status.PathCopied"));
     }
 
     private void RevealCurrent()
     {
         if (_items.Count == 0) return;
 
-        FlashStatus(ExplorerReveal.Reveal(_items[_index].PrimaryPath)
-            ? "已在资源管理器中定位"
-            : "无法打开资源管理器");
+        FlashStatus(AppLocalization.Get(ExplorerReveal.Reveal(_items[_index].PrimaryPath)
+            ? "Status.RevealedInExplorer"
+            : "Status.CannotOpenExplorer"));
     }
 
     /// <summary>删除当前图片。成功后通知主窗口刷新，并把查看器切到相邻一张。</summary>
@@ -583,10 +604,10 @@ public partial class ViewerWindow : Window
         var item = _items[_index];
         var confirmed = await ConfirmWindow.AskAsync(
             this,
-            "删除这张图片？",
-            "文件将移到回收站，可从回收站还原。图片的标签与索引会一并移除。",
+            AppLocalization.Get("Confirm.DeleteOne.Title"),
+            AppLocalization.Get("Confirm.Delete.Message"),
             item.FileName,
-            "移到回收站");
+            AppLocalization.Get("Confirm.Delete.Action"));
         if (!confirmed) return;
 
         BatchOutcome outcome;
@@ -596,13 +617,13 @@ public partial class ViewerWindow : Window
         }
         catch (Exception ex)
         {
-            FlashStatus($"删除失败：{ex.Message}");
+            FlashStatus(AppLocalization.Format("Status.DeleteFailed", ex.Message));
             return;
         }
 
         if (outcome.Succeeded == 0)
         {
-            FlashStatus(outcome.Errors.FirstOrDefault() ?? "无法删除这张图片");
+            FlashStatus(outcome.Errors.FirstOrDefault() ?? AppLocalization.Get("Viewer.DeleteUnavailable"));
             return;
         }
         LibraryChanged?.Invoke(this, EventArgs.Empty);
@@ -681,7 +702,9 @@ public partial class ViewerWindow : Window
         var maximized = WindowState == WindowState.Maximized;
         MaximizeIcon.IsVisible = !maximized;
         RestoreIcon.IsVisible = maximized;
-        ToolTip.SetTip(MaxRestoreButton, maximized ? "还原" : "最大化");
+        ToolTip.SetTip(
+            MaxRestoreButton,
+            AppLocalization.Get(maximized ? "Common.Restore" : "Common.Maximize"));
         RootLayout.Margin = WindowChrome.GetMaximizedInset(this);
         if (WindowState == WindowState.Normal) WindowChrome.EnsureVisible(this);
     }

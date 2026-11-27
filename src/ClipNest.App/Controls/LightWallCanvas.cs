@@ -19,7 +19,7 @@ public sealed class LightWallCanvas : Control
     public static readonly StyledProperty<double> CornerRadiusProperty =
         AvaloniaProperty.Register<LightWallCanvas, double>(nameof(CornerRadius));
 
-    // 光墙同样跟随图库全部条目，缓存必须自行封顶。
+    // 光墙展示图库全部条目，纹理缓存按上限淘汰，避免位图持续驻留内存。
     private const long MaxTextureBytes = 128L * 1024 * 1024;
     private const long MaxBlurredBytes = 16L * 1024 * 1024;
 
@@ -100,7 +100,7 @@ public sealed class LightWallCanvas : Control
 
         if (change.Property == CornerRadiusProperty) InvalidateVisual();
 
-        // 光墙的缓动按合成器帧推进，高刷屏上步伐才和刷新节奏对齐。
+        // 光墙的缓动按合成器帧推进，使高刷屏上的帧步进与刷新节奏保持一致。
         if (change.Property == IsVisibleProperty && change.GetNewValue<bool>())
             RequestFrame();
 
@@ -444,7 +444,7 @@ public sealed class LightWallCanvas : Control
         return Math.Abs(_targetScroll - _scroll) >= 0.5;
     }
 
-    /// <summary>指针位置做轻微缓动，景深与放大才不会是硬切；大跨度移动直接落位。</summary>
+    /// <summary>对指针位置作轻微缓动，使景深与放大平滑过渡；大跨度移动直接落位。</summary>
     private bool StepPointer(double dtMs)
     {
         var dx = _pointer.X - _pointerRender.X;

@@ -1,6 +1,8 @@
+using ClipNest.Ai.Tagging;
 using ClipNest.App.Services;
 using ClipNest.App.ViewModels;
 using ClipNest.Core.Models;
+using ClipNest.Core.Tagging;
 using ClipNest.Data;
 using ClipNest.Data.Repositories;
 using ClipNest.Data.Search;
@@ -237,7 +239,7 @@ public sealed class MainWindowViewModelTests
         var vm = new MainWindowViewModel();
 
         Assert.True(
-            vm.SemanticStatus.Contains("语义不可用") || vm.SemanticStatus.Contains("未安装"),
+            vm.SemanticStatus.Contains("语义搜索不可用") || vm.SemanticStatus.Contains("未安装"),
             $"实际状态：{vm.SemanticStatus}");
         Assert.False(vm.IsModelReady);
     }
@@ -465,5 +467,91 @@ public sealed class MainWindowViewModelTests
         {
             if (File.Exists(path)) File.Delete(path);
         }
+    }
+
+    [Fact]
+    public void Inspector_Overview_And_Selection_Metadata_Update()
+    {
+        var vm = new MainWindowViewModel();
+
+        Assert.Equal("图库概览", vm.InspectorHeaderTitle);
+        Assert.False(vm.ShowCollectionKind);
+        Assert.False(vm.HasSelectedExtension);
+
+        vm.SelectedItem = new AssetListItem { Id = 1, FileName = "elaina.webp", Width = 1200, Height = 1800 };
+
+        Assert.Equal("详情", vm.InspectorHeaderTitle);
+        Assert.Equal("WEBP", vm.SelectedExtension);
+        Assert.True(vm.HasSelectedExtension);
+
+        vm.OpenAiSettingsCommand.Execute(null);
+        Assert.True(vm.IsSettingsOpen);
+        Assert.True(vm.IsAiSection);
+    }
+
+    [Fact]
+    public void InferenceThreads_Stepper_Clamps_And_Persists()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"clipnest-{Guid.NewGuid():N}.json");
+        try
+        {
+            var settings = new SettingsService(path);
+            settings.Settings.InferenceThreads = 1;
+            var vm = new MainWindowViewModel(settings: settings);
+
+            Assert.Equal(1, vm.InferenceThreadsValue);
+            Assert.False(vm.CanDecreaseInferenceThreads);
+
+            vm.DecreaseInferenceThreadsCommand.Execute(null);
+            Assert.Equal(1, vm.InferenceThreadsValue);
+
+            if (Environment.ProcessorCount > 1)
+            {
+                Assert.True(vm.CanIncreaseInferenceThreads);
+                vm.IncreaseInferenceThreadsCommand.Execute(null);
+                Assert.Equal(2, vm.InferenceThreadsValue);
+                Assert.Equal("2", vm.InferenceThreadsDisplay);
+                Assert.True(vm.CanDecreaseInferenceThreads);
+
+                var reloaded = new SettingsService(path);
+                Assert.Equal(2, reloaded.Settings.InferenceThreads);
+            }
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    private sealed class StubTagger : ITagger
+    {
+        public bool IsAvailable => false;
+        public Task<AiTagResult> TagAsync(string path, CancellationToken ct = default) =>
+            Task.FromResult(AiTagResult.Empty);
+        public Task ReleaseIfIdleAsync(TimeSpan idleFor, CancellationToken ct = default) =>
+            Task.CompletedTask;
+        public void Dispose() { }
+    }
+
+    [Fact]
+    public void TagModelCatalog_ExposesDescriptionsForAllRegisteredModels()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"clipnest-models-{Guid.NewGuid():N}");
+        var entries = TagModelDefinition.All
+            .Select(def => new TagModelEntry(
+                def,
+                new TagModelManager(Path.Combine(tempRoot, def.Id), def),
+                new StubTagger()))
+            .ToList();
+        var catalog = new TagModelCatalog(entries);
+
+        var vm = new MainWindowViewModel(tagCatalog: catalog);
+
+        Assert.Equal(TagModelDefinition.All.Count, vm.TagModels.Count);
+        Assert.Equal(TagModelDefinition.Default.Id, vm.DefaultTagModelId);
+        Assert.Contains(vm.TagModels, option => option.Id == TagModelDefinition.WdEva02LargeV3.Id);
+        Assert.Contains(vm.TagModels, option => option.Id == TagModelDefinition.WdSwinV2V3.Id);
+        Assert.Contains(vm.TagModels, option => option.Id == TagModelDefinition.ClTagger.Id);
+        Assert.All(vm.TagModels, option => Assert.True(option.HasDescription));
     }
 }
